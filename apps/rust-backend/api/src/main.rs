@@ -1,19 +1,31 @@
-use poem::{IntoResponse, post, Route, Server, get, handler, listener::TcpListener, web::Path};
+use poem::{IntoResponse, post, Route, Server, get, handler, listener::TcpListener, web::{Path, Json}};
+
+use crate::req_inputs::CreateWebsiteRequest;
+use crate::req_outputs::CreateWebsiteResponse;
+
+pub mod req_inputs;
+pub mod req_outputs;
+
 
 #[handler]
 fn getwebsite(Path((websiteId, city)): Path<(String, String)>) -> String {
     format!("hello: websiteId={}, city={}", websiteId, city)
 }
 #[handler]
-fn createwebsite(Path(city): Path<String>) -> String {
-    format!("hello: city={}", city)
+fn createwebsite(Json(data): Json<CreateWebsiteRequest>) -> Json<CreateWebsiteResponse> {
+    let url:String = data.url;
+    let response: CreateWebsiteResponse = CreateWebsiteResponse{
+        id:String::from("1244")
+    };
+
+    Json(response)
 }
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     let app = Route::new()
     .at("/status/:websiteId/:city", get(getwebsite))
-    .at("/website/:city", post(createwebsite));
+    .at("/website", post(createwebsite));
     Server::new(TcpListener::bind("0.0.0.0:3002"))
         .run(app)
         .await
