@@ -1,0 +1,4 @@
+./api/.env
+./store/.env
+./target
+Cargo.lock
