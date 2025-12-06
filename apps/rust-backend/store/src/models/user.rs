@@ -30,7 +30,7 @@ impl Store {
         Ok(id.to_string())
 
     }
-    pub fn signin_user(&mut self, input_username: String, input_password: String) -> Result<bool, diesel::result::Error> {
+    pub fn signin_user(&mut self, input_username: String, input_password: String) -> Result<String, diesel::result::Error> {
         use crate::schema::User::dsl::{User as users, name};
 
         let user_result = users
@@ -39,10 +39,11 @@ impl Store {
             .first::<DbUser>(&mut self.conn)?;
 
         if user_result.password != input_password {
-            return Ok(false);
+            return Err(diesel::result::Error::NotFound);
         }
-
-        Ok(true)
+        
+        Ok(user_result.id.clone())
+        
     }
 
 }

@@ -27,6 +27,7 @@ dependencies = [
  "poem",
  "serde",
  "store",
+ "thiserror",
  "tokio",
 ]
 
