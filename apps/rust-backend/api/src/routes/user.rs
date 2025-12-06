@@ -1,5 +1,7 @@
 use std::sync::{Arc, Mutex};
 use poem::{ error::ResponseError, Error,  handler,Result, http::StatusCode, web::{Data, Json}};
+use serde::{Deserialize, Serialize};
+use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey};
 
 use crate::req_inputs::{ SignUpUserInput,SignInUserInput};
 use crate::req_outputs::{ SignUpUserOutput,SignInUserOutput};
@@ -16,6 +18,12 @@ impl ResponseError for CustomError {
     fn status(&self) -> StatusCode {
         StatusCode::BAD_REQUEST
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    sub: String,
+    exp: usize,
 }
 
 #[handler]
@@ -40,11 +48,25 @@ pub fn signinuser(Json(data): Json<SignInUserInput>,  Data(s): Data<&Arc<Mutex<S
 
     match id {
         Ok(id) => {
-            let response = SignInUserOutput{
-                jwt: id
-            };
 
-            Ok(Json(response))
+
+            let my_claims = Claims{
+                sub: id,
+                exp: 111111111111111
+            };
+            let token = encode(&Header::default(), &my_claims, &EncodingKey::from_secret("secret".as_ref()));
+            match token {
+                Ok(token) => {
+                    let response = SignInUserOutput{
+                        jwt: token
+                    };
+                    Ok(Json(response))
+                }
+                Err(_) => Err(CustomError {
+                    message: "token creation failed try again ".to_string(),
+                }
+                .into())    
+            }
         }
         Err(_) => Err(CustomError {
             message: "Invalid username or password".to_string(),

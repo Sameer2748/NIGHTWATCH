@@ -9,3 +9,5 @@ serde = {version = "1.0.228", features= ["derive"] }
 tokio = { version = "1", features = ["full"] }
 store = {path= "../store"}
 thiserror = "2.0"
+jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
+
