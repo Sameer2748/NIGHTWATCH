@@ -1,4 +1,6 @@
 ./api/.env
+./api/Cargo.lock
 ./store/.env
+./store/Cargo.lock
 ./target
 Cargo.lock
