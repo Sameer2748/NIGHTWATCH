@@ -3,15 +3,15 @@ import { base_url } from "./config"
 
 
 
-const username = Math.random().toString(36).substring(2, 15)
-const password = Math.random().toString(36).substring(2, 15)    
-
 export const createUser = async (): Promise<{id: string, jwt: string}> => {
-    const signupRes = await axios.post(`${base_url}/users/user/signup`, {
+    
+    const username = Math.random().toString(36).substring(2, 15)
+    const password = Math.random().toString(36).substring(2, 15)    
+    const signupRes = await axios.post(`${base_url}/user/signup`, {
         name: username,
         password
     })
-    const signinRes = await axios.post(`${base_url}/users/user/signin`, {
+    const signinRes = await axios.post(`${base_url}/user/signin`, {
         name: username,
         password
     })

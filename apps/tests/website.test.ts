@@ -3,8 +3,6 @@ import {beforeAll, describe, expect, it} from "bun:test"
 import { createUser } from "./testUtils";
 import { base_url } from "./config";
 
-// const base_url = "http://localhost:3000/api/v1"
-// const base_url = "http://localhost:3002"
 
 
 describe("website get creeated", ()=>{
@@ -52,3 +50,43 @@ describe("website get creeated", ()=>{
 })
 
  
+describe("website get details", ()=>{
+  let userJwt1: string;
+  let userJwt2: string;
+  let userId1: string;
+  let userId2: string;
+  beforeAll(async()=>{
+    const {id: userIdValue, jwt: userJwtValue} = await createUser();
+    userJwt1 = userJwtValue;
+    userId1 = userIdValue;
+    const {id: userIdValue2, jwt: userJwtValue2} = await createUser();
+    userJwt2 = userJwtValue2;
+    userId2 = userIdValue2;
+  })
+  it("Website created if url is present", async()=>{
+    const res = await axios.post(`${base_url}/website`, {
+        url:"amazon.com"  
+    }, {
+      headers: {
+        Authorization: `${userJwt1}`
+      }
+    })
+  
+    expect(res.data.id).not.toBeNull();
+    
+
+    const res2 = await axios.get(`${base_url}/website/${res.data.id}`, {
+      headers: {
+        Authorization: `${userJwt1}` 
+      }
+    })
+    
+    
+    expect(res2.data.id).not.toBeNull();
+    expect(res2.data.url).not.toBeNull();
+    expect(res2.data.user_id).toBeNull();
+
+ 
+})
+ 
+})  
