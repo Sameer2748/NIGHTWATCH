@@ -33,6 +33,7 @@ export async function postwebsiteDetails(req: Request, res: Response): Promise<v
                 id: websiteId
             },
             include:{
+              
               ticks:{
                 orderBy:[{
                   createdAt: "desc"
@@ -47,7 +48,7 @@ export async function postwebsiteDetails(req: Request, res: Response): Promise<v
           res.status(404).json({ message: "Website not found" });
           return;
         }
-        res.status(200).json(website);
+        res.status(200).json({url:website.url, id: website.user_id, user_id: website.user_id});
         return;
     } catch (error) {
         console.error("Error getting website details:", error);

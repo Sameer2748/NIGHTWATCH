@@ -3,11 +3,11 @@ import { getwebsiteDetails, postwebsiteDetails } from "../../controllers/website
 import { signIn, signUp } from "../../controllers/userControllers";
 const router = Router();
 
-router.post("/user/signin", (req,res, next)=>{
+router.post("/signin", (req,res, next)=>{
     signIn(req, res ).catch(next);
 });
 
-router.post("/user/signup", (req,res, next)=>{
+router.post("/signup", (req,res, next)=>{
     signUp(req, res ).catch(next);
 });
 // router.get("/status/:websiteId", getwebsiteDetails)

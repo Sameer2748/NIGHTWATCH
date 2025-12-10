@@ -8,7 +8,7 @@ router.post("/", authMiddleware, (req: Request, res: Response, next: NextFunctio
     postwebsiteDetails(req, res).catch(next);
 });
 
-router.get("/status/:websiteId", authMiddleware, (req, res, next) => {
+router.get("/:websiteId", authMiddleware, (req, res, next) => {
   getwebsiteDetails(req, res).catch(next);
 });
 
