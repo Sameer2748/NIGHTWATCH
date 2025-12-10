@@ -2,6 +2,7 @@ use crate::store::Store;
 use chrono::{NaiveDateTime, Utc};
 use diesel::prelude::*;
 use uuid::Uuid;
+use crate::schema::Website::user_id;
 
 #[derive(Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::Website)]
@@ -15,12 +16,12 @@ pub struct DbWebsite {
 
 impl Store {   
     // we write this & self to make the function a method of the struct
-    pub fn create_website(&mut self, user_id: String, url: String) -> Result<DbWebsite, diesel::result::Error> {
+    pub fn create_website(&mut self, input_user_id: String, url: String) -> Result<DbWebsite, diesel::result::Error> {
         let id = Uuid::new_v4();
         let website_data = DbWebsite {
             id: id.to_string(),
             url,
-            user_id,
+            user_id: input_user_id,
             timeAdded: Utc::now().naive_utc(),
         };
         let website = diesel::insert_into(crate::schema::Website::table)
@@ -30,11 +31,12 @@ impl Store {
 
         Ok(website)
     }
-    pub fn get_website(&mut self, input_id: String) -> Result<DbWebsite, diesel::result::Error> {
+    pub fn get_website(&mut self, input_id: String, input_user_id: String) -> Result<DbWebsite, diesel::result::Error> {
         use crate::schema::Website::dsl::{Website as websites, id};
 
         let website_result = websites
             .filter(id.eq(input_id))
+            .filter(user_id.eq(input_user_id))
             .select(DbWebsite::as_select())
             .first::<DbWebsite>(&mut self.conn)?;
 
