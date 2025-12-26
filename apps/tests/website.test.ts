@@ -16,7 +16,7 @@ describe("website get creeated", ()=>{
   it("Website not created if url is not present", async()=>{
     try {
       const res = await axios.post(`${base_url}/website`, {
-        url:"amazon.com"  
+        url:"http://avadhi.pro/"  
     })
         expect(res.data).toBeNull();
     } catch (error) {
@@ -37,7 +37,7 @@ describe("website get creeated", ()=>{
   })
   it("Website created if url is present", async()=>{
         const res = await axios.post(`${base_url}/website`, {
-            url:"amazon.com"  
+            url:"http://avadhi.pro/"  
         }, {
           headers: {
             Authorization: `${userJwt}`
@@ -65,7 +65,7 @@ describe("website get details", ()=>{
   })
   it("Website created if url is present", async()=>{
     const res = await axios.post(`${base_url}/website`, {
-        url:"amazon.com"  
+        url:"http://avadhi.pro/"  
     }, {
       headers: {
         Authorization: `${userJwt1}`
@@ -84,7 +84,7 @@ describe("website get details", ()=>{
     
     expect(res2.data.id).not.toBeNull();
     expect(res2.data.url).not.toBeNull();
-    expect(res2.data.user_id).toBeNull();
+    expect(res2.data.user_id).not.toBeNull();
 
  
 })

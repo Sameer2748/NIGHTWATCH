@@ -11,9 +11,9 @@ pub fn getwebsite(Path(id): Path<String>, Data(s): Data<&Arc<Mutex<Store>>>, Use
     // store the url in the store library 
     let mut locked_s = s.lock().unwrap();
     let website = locked_s
-        .get_website(id, user_id)
+        .get_website(id, user_id.clone())
         .unwrap();
-    Json(GetWebsiteResponse{url: website.url})
+    Json(GetWebsiteResponse{url: website.url, id:website.id, user_id: user_id})
 
 }
 #[handler]

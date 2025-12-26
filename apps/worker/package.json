@@ -1,0 +1,17 @@
+{
+  "name": "consumer",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@redis-stream": "*",
+    "@repo/db":"*",
+    "axios": "^1.13.2"
+  }
+}

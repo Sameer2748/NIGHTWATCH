@@ -1,0 +1,17 @@
+{
+  "name": "producer",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@repo/db": "*",
+    "@redis-stream":"*",
+    "redis": "^5.10.0"
+  }
+}
