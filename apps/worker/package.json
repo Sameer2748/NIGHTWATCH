@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@redis-stream": "*",
-    "@repo/db":"*",
-    "axios": "^1.13.2"
+    "@repo/db": "*",
+    "axios": "^1.13.2",
+    "got": "^14.6.6"
   }
 }
