@@ -1,23 +1,39 @@
 import { client } from "@repo/db/client"
-import {xAddBulk} from "@redis-stream/index";
+import { xAddBulk } from "@redis-stream/index";
+
+const REGIONS = {
+    INDIA: 'india-region-id',
+    USA: 'usa-region-id'
+};
 
 async function main() {
-    const websites = await client.website.findMany({
-        select:{
-            url:true,
-            id:true
-        }
-    })
-    console.log(websites.length);
-    
+    try {
+        const websites = await client.website.findMany({
+            select: {
+                url: true,
+                id: true
+            }
+        })
+        console.log(`Sending ${websites.length} websites to both regions...`);
 
-    const res = await xAddBulk(websites.map(w=> ({url:w.url, id: w.id})));
-    console.log(res);
-    
-    
+        const websiteData = websites.map(w => ({ url: w.url, id: w.id }));
+
+        // Send to both regions
+        const [indiaRes, usaRes] = await Promise.all([
+            xAddBulk(REGIONS.INDIA, websiteData),
+            xAddBulk(REGIONS.USA, websiteData)
+        ]);
+
+        console.log(`India: ${indiaRes.length} messages, USA: ${usaRes.length} messages`);
+    } catch (error) {
+        console.error("Producer error:", error);
+    }
 }
-setInterval(()=>{
-main()
-},3 * 1000 )
+
+console.log("Producer starting...");
+setInterval(() => {
+    console.log(`[${new Date().toISOString()}] Running producer cycle...`);
+    main()
+}, 2 * 1000 * 60)
 
 main()
