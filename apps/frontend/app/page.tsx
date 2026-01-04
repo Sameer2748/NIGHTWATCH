@@ -4,6 +4,7 @@ import Marquee from '@/components/Marquee';
 import Link from 'next/link';
 import { useTheme } from '@/lib/theme/ThemeContext';
 import { Highlighter } from '@/components/Highlighter';
+
 export default function Home() {
   const { theme, toggleTheme } = useTheme();
 

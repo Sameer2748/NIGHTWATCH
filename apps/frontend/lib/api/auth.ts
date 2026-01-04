@@ -25,6 +25,7 @@ export interface SignUpRequest {
 
 export interface SignUpResponse {
     id: string;
+    jwt: string;
 }
 
 export const authAPI = {

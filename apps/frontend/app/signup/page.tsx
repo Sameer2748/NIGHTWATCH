@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast, Toaster } from 'sonner';
 import { authAPI } from '@/lib/api/auth';
+import { tokenManager } from '@/lib/auth/tokenManager';
 
 export default function SignUpPage() {
     const [step, setStep] = useState(1);
@@ -48,14 +49,17 @@ export default function SignUpPage() {
         setLoading(true);
 
         try {
-            await authAPI.signUp({ name, password });
+            const response = await authAPI.signUp({ name, password });
+
+            // Store token
+            tokenManager.setToken(response.jwt);
 
             // Show success message
-            toast.success('Account created successfully!');
+            toast.success('Account created successfully! Redirecting...');
 
-            // Redirect to sign-in page
+            // Redirect to dashboard
             setTimeout(() => {
-                router.push('/signin');
+                router.push('/dashboard/monitors');
             }, 1000);
         } catch (error: any) {
             console.error('Sign up error:', error);

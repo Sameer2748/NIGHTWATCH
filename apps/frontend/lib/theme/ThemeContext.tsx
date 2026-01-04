@@ -15,7 +15,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const THEME_STORAGE_KEY = 'uptime-theme-preference';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-    const [theme, setThemeState] = useState<ThemeMode>('light');
+    const [theme, setThemeState] = useState<ThemeMode>('dark');
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -38,20 +38,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         root.classList.add(theme);
 
         const currentColors = colors[theme];
-        root.style.setProperty('--bg-primary', currentColors.background);
-        root.style.setProperty('--fg-primary', currentColors.foreground);
+
+        // Update CSS custom properties for Tailwind v4
+        root.style.setProperty('--color-bg-primary', currentColors.background);
+        root.style.setProperty('--color-fg-primary', currentColors.foreground);
         root.style.setProperty('--color-primary', currentColors.primary);
         root.style.setProperty('--color-secondary', currentColors.secondary);
-        root.style.setProperty('--text-primary', currentColors.text.primary);
-        root.style.setProperty('--text-secondary', currentColors.text.secondary);
-        root.style.setProperty('--text-muted', currentColors.text.muted);
-        root.style.setProperty('--border-color', currentColors.border);
-        root.style.setProperty('--card-bg', currentColors.card);
-        root.style.setProperty('--hover-bg', currentColors.hover);
-        root.style.setProperty('--button-primary', currentColors.button.primary);
-        root.style.setProperty('--button-primary-hover', currentColors.button.primaryHover);
-        root.style.setProperty('--button-text', currentColors.button.text);
-
+        root.style.setProperty('--color-text-primary', currentColors.text.primary);
+        root.style.setProperty('--color-text-secondary', currentColors.text.secondary);
+        root.style.setProperty('--color-text-muted', currentColors.text.muted);
+        root.style.setProperty('--color-text-common', currentColors.text.common);
+        root.style.setProperty('--color-border', currentColors.border);
+        root.style.setProperty('--color-card-bg', currentColors.card);
+        root.style.setProperty('--color-hover-bg', currentColors.hover);
+        root.style.setProperty('--color-button-primary', currentColors.button.primary);
+        root.style.setProperty('--color-button-primary-hover', currentColors.button.primaryHover);
+        root.style.setProperty('--color-button-text', currentColors.button.text);
 
         localStorage.setItem(THEME_STORAGE_KEY, theme);
     }, [theme, mounted]);

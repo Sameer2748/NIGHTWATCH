@@ -35,7 +35,7 @@ export default function SignInPage() {
 
             // Redirect to dashboard
             setTimeout(() => {
-                router.push('/dashboard');
+                router.push('/dashboard/monitors');
             }, 500);
         } catch (error: any) {
             console.error('Sign in error:', error);

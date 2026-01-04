@@ -1,6 +1,8 @@
+export type ThemeMode = 'dark' | 'light';
+
 export const colors = {
     dark: {
-        background: '#0b0c14',
+        background: '#0a0b0f',
         foreground: '#ffffff',
         primary: '#01114f',
         secondary: '#e07155',
@@ -13,16 +15,15 @@ export const colors = {
         },
         border: '#2a2b35',
         card: '#16171f',
-        hover: '#1f2029',
+        hover: '#1f2028',
         button: {
-            primary: '#667eea',
-            primaryHover: '#5568d3',
+            primary: '#e07155',
+            primaryHover: '#c85f47',
             text: '#ffffff',
         },
     },
-
     light: {
-        background: '#f1efd8',
+        background: '#f9fafb',
         foreground: '#01114f',
         primary: '#01114f',
         secondary: '#e07155',
@@ -30,19 +31,16 @@ export const colors = {
         text: {
             primary: '#01114f',
             secondary: '#4a4a4a',
-            muted: '#7a7a7a',
+            muted: '#8a8a8a',
             common: '#e07155',
         },
         border: '#d4d2bb',
         card: '#ffffff',
-        hover: '#e5e3cc',
+        hover: '#f5f5f5',
         button: {
-            primary: '#01114f',
-            primaryHover: '#e07155',
+            primary: '#e07155',
+            primaryHover: '#c85f47',
             text: '#ffffff',
         },
     },
-} as const;
-
-export type ThemeMode = 'light' | 'dark';
-export type ColorPalette = typeof colors.dark | typeof colors.light;
+};

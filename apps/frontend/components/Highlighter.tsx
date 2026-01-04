@@ -5,7 +5,6 @@ import type React from "react"
 import { useInView } from "motion/react"
 import { annotate } from "rough-notation"
 import { type RoughAnnotation } from "rough-notation/lib/model"
-import { useTheme } from '@/lib/theme/ThemeContext';
 
 type AnnotationAction =
     | "highlight"
@@ -14,6 +13,7 @@ type AnnotationAction =
     | "circle"
     | "strike-through"
     | "crossed-off"
+
     | "bracket"
 
 interface HighlighterProps {
@@ -41,7 +41,6 @@ export function Highlighter({
     isView = false,
     textColor = "black"
 }: HighlighterProps) {
-      const { theme, toggleTheme } = useTheme();
     const elementRef = useRef<HTMLSpanElement>(null)
     const annotationRef = useRef<RoughAnnotation | null>(null)
 

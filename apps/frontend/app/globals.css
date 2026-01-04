@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Marquee animation */
 @keyframes marquee {
   0% {
     transform: translateX(0);
@@ -16,23 +17,7 @@
   animation: marquee 30s linear infinite;
 }
 
-
-:root {
-  --bg-primary: #0c0d15;
-  --fg-primary: #ffffff;
-  --color-primary: #01114f;
-  --color-secondary: #e07155;
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --text-muted: #6b6b6b;
-  --border-color: #2a2b35;
-  --card-bg: #16171f;
-  --hover-bg: #1f2029;
-  --button-primary: #667eea;
-  --button-primary-hover: #5568d3;
-  --button-text: #ffffff;
-}
-
+/* Global styles */
 * {
   box-sizing: border-box;
   padding: 0;
@@ -47,8 +32,8 @@ body {
 }
 
 body {
-  color: var(--text-primary);
-  background: var(--bg-primary);
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -66,19 +51,57 @@ html.light {
   color-scheme: normal;
 }
 
+/* Scrollbar styles */
 ::-webkit-scrollbar {
   width: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+  background: var(--color-bg-primary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: var(--color-border);
   border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--color-text-muted);
+}
+
+
+
+@layer base {
+  :root {
+    --background: var(--color-bg-primary);
+    --foreground: var(--color-text-primary);
+    --card: var(--color-card-bg);
+    --card-foreground: var(--color-text-primary);
+    --popover: var(--color-card-bg);
+    --popover-foreground: var(--color-text-primary);
+    --primary: var(--color-button-primary);
+    --primary-foreground: var(--color-button-text);
+    --secondary: var(--color-secondary);
+    --secondary-foreground: var(--color-button-text);
+    --muted: var(--color-hover-bg);
+    --muted-foreground: var(--color-text-muted);
+    --accent: var(--color-hover-bg);
+    --accent-foreground: var(--color-text-primary);
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: var(--color-border);
+    --input: var(--color-border);
+    --ring: var(--color-button-primary);
+    --radius: 0.5rem;
+    --sidebar-background: var(--color-bg-primary);
+    --sidebar-foreground: var(--color-text-secondary);
+    --sidebar-primary: var(--color-button-primary);
+    --sidebar-primary-foreground: var(--color-button-text);
+    --sidebar-accent: var(--color-hover-bg);
+    --sidebar-accent-foreground: var(--color-button-primary);
+    --sidebar-border: var(--color-border);
+    --sidebar-ring: var(--color-button-primary);
+    --chart-1: var(--color-button-primary);
+    --chart-2: var(--color-secondary);
+  }
 }
