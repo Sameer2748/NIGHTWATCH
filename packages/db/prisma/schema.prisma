@@ -19,26 +19,52 @@ model Website {
   url        String
   timeAdded  DateTime
   ticks      WebsiteTick[]
+  incidents  Incident[]
   user_id    String
   user       User    @relation(fields:[user_id], references: [id])
 
 }
 
 model Region {
-  id      String        @id @default(uuid())
-  name    String
-  ticks   WebsiteTick[]
+  id        String        @id @default(uuid())
+  name      String
+  ticks     WebsiteTick[]
+  incidents Incident[]
 }
 
 model WebsiteTick {
   id               String         @id @default(uuid())
   response_time_ms Int
+  dns_time_ms      Int?           // DNS lookup time
+  tcp_time_ms      Int?           // TCP connection time
+  tls_time_ms      Int?           // TLS handshake time
+  ttfb_ms          Int?           // Time to first byte
+  download_time_ms Int?           // Download/data transfer time
   status          WebsiteStatus
   region          Region         @relation(fields: [region_id], references: [id])
   website         Website        @relation(fields: [website_id], references: [id])
   region_id       String
   website_id      String
   createdAt     DateTime @default(now())
+}
+
+model Incident {
+  id          String    @id @default(uuid())
+  website     Website   @relation(fields: [website_id], references: [id])
+  website_id  String
+  region      Region    @relation(fields: [region_id], references: [id])
+  region_id   String
+  startedAt   DateTime  @default(now())
+  resolvedAt  DateTime?
+  duration    Int?      // Duration in seconds
+  status      IncidentStatus @default(ONGOING)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+enum IncidentStatus {
+  ONGOING
+  RESOLVED
 }
 
 enum WebsiteStatus {
