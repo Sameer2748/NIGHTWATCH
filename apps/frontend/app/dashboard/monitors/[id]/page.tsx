@@ -97,6 +97,11 @@ export default function MonitorDetailPage() {
         try {
             if (!silent) setIsLoading(true)
             const data = await getMonitorDetails(id, token, selectedRegion)
+            console.log("Monitor Data Received:", {
+                url: data.url,
+                ticksCount: data.ticks?.length,
+                latestTicks: data.ticks?.slice(0, 5).map(t => ({ time: t.createdAt, status: t.status }))
+            })
             setMonitor(data)
         } catch (error) {
             console.error("Failed to fetch monitor details:", error)
@@ -105,6 +110,21 @@ export default function MonitorDetailPage() {
             if (!silent) setIsLoading(false)
         }
     }
+
+    // Filter ticks based on selected time range
+    const filteredTicks = React.useMemo(() => {
+        if (!monitor?.ticks || monitor.ticks.length === 0) return []
+
+        const now = new Date()
+        let cutoff = subDays(now, 1) // Default 24h
+
+        if (timeRange === 'week') cutoff = subDays(now, 7)
+        if (timeRange === 'month') cutoff = subDays(now, 30)
+
+        return [...monitor.ticks]
+            .filter(t => new Date(t.createdAt) > cutoff)
+            .reverse()
+    }, [monitor?.ticks, timeRange])
 
     if (isLoading) {
         return (
@@ -164,8 +184,8 @@ export default function MonitorDetailPage() {
         const remainingDays = days % 365
         return `${years} year${years > 1 ? 's' : ''} ${remainingDays} days`
     }
-    // Format ticks for Recharts
-    const chartData = [...monitor.ticks].reverse().map(tick => {
+
+    const chartData = filteredTicks.map(tick => {
         const date = new Date(tick.createdAt)
         return {
             timestamp: date.getTime(),
@@ -354,13 +374,20 @@ export default function MonitorDetailPage() {
                                 </defs>
                                 <CartesianGrid vertical={false} stroke="#ffffff05" strokeDasharray="3 3" />
                                 <XAxis
-                                    dataKey="timeStr"
-                                    type="category"
+                                    dataKey="timestamp"
+                                    type="number"
+                                    domain={['dataMin', 'dataMax']}
                                     axisLine={false}
                                     tickLine={false}
                                     tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
                                     dy={10}
-                                    interval={Math.max(0, Math.floor(chartData.length / 10))}
+                                    tickFormatter={(unixTime) => {
+                                        const date = new Date(unixTime)
+                                        if (timeRange === 'day') return format(date, "HH:mm")
+                                        return format(date, "MMM d")
+                                    }}
+                                    interval="preserveStart"
+                                    minTickGap={50}
                                 />
                                 <YAxis
                                     axisLine={false}
