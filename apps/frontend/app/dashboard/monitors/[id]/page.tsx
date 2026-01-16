@@ -126,6 +126,60 @@ export default function MonitorDetailPage() {
             .reverse()
     }, [monitor?.ticks, timeRange])
 
+    const chartData = React.useMemo(() => {
+        if (!filteredTicks || filteredTicks.length === 0) return []
+
+        if (timeRange === 'day') {
+            return filteredTicks.map(tick => {
+                const date = new Date(tick.createdAt)
+                return {
+                    timestamp: date.getTime(),
+                    timeStr: format(date, "HH:mm"),
+                    fullDate: format(date, "MMM d, HH:mm:ss"),
+                    responseTime: tick.response_time_ms,
+                    nameLookup: tick.dns_time_ms || 0,
+                    connection: tick.tcp_time_ms || 0,
+                    tls: tick.tls_time_ms || 0,
+                    dataTransfer: (tick.ttfb_ms || 0) + (tick.download_time_ms || 0),
+                    isAggregated: false
+                }
+            })
+        }
+
+        // Aggregate by day for week/month
+        const groups: Record<string, any[]> = {}
+        filteredTicks.forEach(tick => {
+            const date = new Date(tick.createdAt)
+            const dayKey = format(date, "yyyy-MM-dd")
+            if (!groups[dayKey]) groups[dayKey] = []
+            groups[dayKey].push(tick)
+        })
+
+        return Object.keys(groups).sort().map(dayKey => {
+            const dayTicks = groups[dayKey]
+            if (!dayTicks || dayTicks.length === 0) return null
+
+            const firstTick = dayTicks[0]
+            const date = new Date(firstTick.createdAt)
+            const count = dayTicks.length
+
+            const avg = (key: string) => Math.round(dayTicks.reduce((acc, t: any) => acc + (t[key] || 0), 0) / count)
+
+            return {
+                timestamp: startOfDay(date).getTime(),
+                timeStr: format(date, "MMM d"),
+                fullDate: format(date, "MMMM d, yyyy"),
+                responseTime: avg('response_time_ms'),
+                nameLookup: avg('dns_time_ms'),
+                connection: avg('tcp_time_ms'),
+                tls: avg('tls_time_ms'),
+                dataTransfer: Math.round(dayTicks.reduce((acc, t: any) => acc + (t.ttfb_ms || 0) + (t.download_time_ms || 0), 0) / count),
+                isAggregated: true,
+                tickCount: count
+            }
+        }).filter((item): item is any => item !== null)
+    }, [filteredTicks, timeRange])
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
@@ -185,21 +239,8 @@ export default function MonitorDetailPage() {
         return `${years} year${years > 1 ? 's' : ''} ${remainingDays} days`
     }
 
-    const chartData = filteredTicks.map(tick => {
-        const date = new Date(tick.createdAt)
-        return {
-            timestamp: date.getTime(),
-            timeStr: format(date, "HH:mm"),
-            fullDate: format(date, "MMM d, HH:mm:ss"),
-            responseTime: tick.response_time_ms,
-            nameLookup: tick.dns_time_ms || 0,
-            connection: tick.tcp_time_ms || 0,
-            tls: tick.tls_time_ms || 0,
-            dataTransfer: (tick.ttfb_ms || 0) + (tick.download_time_ms || 0),
-        }
-    })
 
-    const CustomTooltip = ({ active, payload, label }: any) => {
+    const CustomTooltip = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload
             const total = payload.reduce((acc: number, entry: any) => acc + (entry.value || 0), 0)
@@ -208,6 +249,11 @@ export default function MonitorDetailPage() {
                     <div className="mb-3 border-b border-white/10 pb-2">
                         <p className="text-white font-black text-lg leading-none mb-1">{data.timeStr}</p>
                         <p className="text-slate-400 text-[10px] font-medium uppercase tracking-wider">{data.fullDate}</p>
+                        {data.isAggregated && (
+                            <Badge variant="outline" className="mt-2 text-[9px] h-4 bg-emerald-500/5 text-emerald-400 border-emerald-500/20">
+                                AVG OF {data.tickCount} CHECKS
+                            </Badge>
+                        )}
                     </div>
                     <div className="space-y-2">
                         {payload.map((entry: any, index: number) => (
@@ -222,7 +268,9 @@ export default function MonitorDetailPage() {
                             </div>
                         ))}
                         <div className="pt-2 mt-1 border-t border-white/10 flex items-center justify-between gap-4">
-                            <span className="text-white text-xs font-bold uppercase tracking-tight">Response Time</span>
+                            <span className="text-white text-xs font-bold uppercase tracking-tight">
+                                {data.isAggregated ? 'AVG RESPONSE' : 'RESPONSE TIME'}
+                            </span>
                             <span className="text-emerald-400 text-xs font-mono font-bold">{total}ms</span>
                         </div>
                     </div>
@@ -351,62 +399,68 @@ export default function MonitorDetailPage() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-6">
-                    <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="colorLookup" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorConnect" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorTls" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorData" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid vertical={false} stroke="#ffffff05" strokeDasharray="3 3" />
-                                <XAxis
-                                    dataKey="timestamp"
-                                    type="number"
-                                    domain={['dataMin', 'dataMax']}
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
-                                    dy={10}
-                                    tickFormatter={(unixTime) => {
-                                        const date = new Date(unixTime)
-                                        if (timeRange === 'day') return format(date, "HH:mm")
-                                        return format(date, "MMM d")
-                                    }}
-                                    interval="preserveStart"
-                                    minTickGap={50}
-                                />
-                                <YAxis
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
-                                    unit="ms"
-                                    dx={-10}
-                                    domain={[0, (dataMax: number) => Math.max(100, Math.ceil(dataMax * 1.2))]}
-                                />
-                                <Tooltip
-                                    content={<CustomTooltip />}
-                                    cursor={{ stroke: '#ffffff10', strokeWidth: 1 }}
-                                />
-                                <Area stackId="1" type="monotone" dataKey="nameLookup" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorLookup)" isAnimationActive={false} />
-                                <Area stackId="1" type="monotone" dataKey="connection" stroke="#3b82f6" fillOpacity={1} fill="url(#colorConnect)" isAnimationActive={false} />
-                                <Area stackId="1" type="monotone" dataKey="tls" stroke="#10b981" fillOpacity={1} fill="url(#colorTls)" isAnimationActive={false} />
-                                <Area stackId="1" type="monotone" dataKey="dataTransfer" stroke="#34d399" fillOpacity={1} fill="url(#colorData)" isAnimationActive={false} />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                    <div className="h-[320px] w-full overflow-x-auto overflow-y-hidden custom-scrollbar pb-2">
+                        <div style={{
+                            width: timeRange === 'day' ? `${Math.max(100, chartData.length * 0.8)}%` : '100%',
+                            minWidth: '100%',
+                            height: '100%'
+                        }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={chartData} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorLookup" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorConnect" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorTls" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorData" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid vertical={false} stroke="#ffffff05" strokeDasharray="3 3" />
+                                    <XAxis
+                                        dataKey="timestamp"
+                                        type="number"
+                                        domain={['auto', 'auto']}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
+                                        dy={10}
+                                        tickFormatter={(unixTime) => {
+                                            const date = new Date(unixTime)
+                                            if (timeRange === 'day') return format(date, "HH:mm")
+                                            return format(date, "MMM d")
+                                        }}
+                                        interval="preserveStart"
+                                        minTickGap={timeRange === 'day' ? 20 : 50}
+                                    />
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
+                                        unit="ms"
+                                        dx={-10}
+                                        domain={[0, (dataMax: number) => Math.max(100, Math.ceil(dataMax * 1.2))]}
+                                    />
+                                    <Tooltip
+                                        content={<CustomTooltip />}
+                                        cursor={{ stroke: '#ffffff10', strokeWidth: 1 }}
+                                    />
+                                    <Area stackId="1" type="monotone" dataKey="nameLookup" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorLookup)" isAnimationActive={false} />
+                                    <Area stackId="1" type="monotone" dataKey="connection" stroke="#3b82f6" fillOpacity={1} fill="url(#colorConnect)" isAnimationActive={false} />
+                                    <Area stackId="1" type="monotone" dataKey="tls" stroke="#10b981" fillOpacity={1} fill="url(#colorTls)" isAnimationActive={false} />
+                                    <Area stackId="1" type="monotone" dataKey="dataTransfer" stroke="#34d399" fillOpacity={1} fill="url(#colorData)" isAnimationActive={false} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                     <div className="flex items-center gap-6 mt-6 px-4">
                         <div className="flex items-center gap-2">
