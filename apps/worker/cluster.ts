@@ -6,52 +6,54 @@ const REGIONS = [
     { id: 'usa-region-id', name: 'USA', workers: 3 }
 ];
 
-const workers: any[] = [];
+const processes: Map<string, any> = new Map();
 
-console.log('Starting Multi-Region Worker Cluster...\n');
+console.log('Starting Multi-Region Worker Cluster with Auto-Restart...\n');
+
+function startWorker(region: any, index: number) {
+    const workerId = `${region.name.toLowerCase()}-worker-${index}`;
+    console.log(`[${workerId}] Starting worker...`);
+
+    const child = spawn('bun', ['index.ts'], {
+        cwd: process.cwd(),
+        env: {
+            ...process.env,
+            REGION_ID: region.id,
+            WORKER_ID: workerId
+        },
+        stdio: 'inherit'
+    });
+
+    processes.set(workerId, child);
+
+    child.on('exit', (code, signal) => {
+        processes.delete(workerId);
+        console.log(`[${workerId}] Exited with code ${code} and signal ${signal}. Restarting in 5s...`);
+        setTimeout(() => startWorker(region, index), 5000);
+    });
+
+    child.on('error', (err) => {
+        console.error(`[${workerId}] Spawn error:`, err);
+    });
+}
 
 // Start workers for each region
 REGIONS.forEach(region => {
-    console.log(`Starting ${region.workers} workers for ${region.name}...`);
-
     for (let i = 1; i <= region.workers; i++) {
-        const workerId = `${region.name.toLowerCase()}-worker-${i}`;
-
-        const worker = spawn('bun', ['index.ts'], {
-            cwd: process.cwd(),
-            env: {
-                ...process.env,
-                REGION_ID: region.id,
-                WORKER_ID: workerId
-            },
-            stdio: 'inherit'
-        });
-
-        workers.push({ region: region.name, workerId, process: worker });
-
-        worker.on('error', (error) => {
-            console.error(`[${workerId}] Error:`, error);
-        });
-
-        worker.on('exit', (code) => {
-            console.log(`[${workerId}] Exited with code ${code}`);
-        });
+        startWorker(region, i);
     }
 });
 
-console.log(`\nStarted ${workers.length} workers across ${REGIONS.length} regions`);
-console.log('Worker Distribution:');
-REGIONS.forEach(region => {
-    console.log(`   ${region.name}: ${region.workers} workers`);
-});
-console.log('\nPress Ctrl+C to stop all workers\n');
+console.log(`\nStarted ${REGIONS.reduce((acc, r) => acc + r.workers, 0)} workers across ${REGIONS.length} regions`);
+console.log('Press Ctrl+C to stop all workers and the cluster manager\n');
 
 // Graceful shutdown
 process.on('SIGINT', () => {
     console.log('\n\nShutting down all workers...');
-    workers.forEach(({ workerId, process }) => {
+    processes.forEach((child, workerId) => {
         console.log(`   Stopping ${workerId}...`);
-        process.kill();
+        child.removeAllListeners('exit'); // Prevent restart on manual kill
+        child.kill();
     });
     console.log('All workers stopped');
     process.exit(0);

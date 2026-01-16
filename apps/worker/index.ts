@@ -1,6 +1,7 @@
 import { xAckBulk, xReadGroup, initConsumerGroup } from "@redis-stream/index";
 import got from "got"
 import { client } from "@repo/db/client"
+import type { message } from "@redis-stream/types"
 
 const regionId = process.env.REGION_ID!;
 const workerId = process.env.WORKER_ID! || "worker-1";
@@ -10,140 +11,150 @@ if (!regionId || !workerId) {
 }
 
 async function main() {
-    console.log(`Worker ${workerId} started for region ${regionId}`);
+    console.log(`[${workerId}] Worker started for region: ${regionId}`);
 
-    await initConsumerGroup(regionId, `consumer-group-${regionId}`);
+    try {
+        await initConsumerGroup(regionId, `consumer-group-${regionId}`);
+    } catch (e) {
+        console.error(`[${workerId}] Initial setup failed:`, e);
+        process.exit(1);
+    }
 
-    while (1) {
+    while (true) {
         try {
-            const response = await xReadGroup(regionId, `consumer-group-${regionId}`, workerId);
+            // Read with a short block to keep the loop responsive
+            const response = await xReadGroup(regionId, `consumer-group-${regionId}`, workerId) as message[];
 
             if (!response || response.length === 0) {
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 2000));
                 continue;
             }
 
-            console.log(`[${regionId}] Received batch of ${response.length} messages`);
+            const now = Date.now();
+            const staleThresholdMs = 15 * 60 * 1000; // 15 mins
 
-            // Skip logic: If we have multiple checks for the same website in one batch,
-            // only process the latest one to catch up with the backlog.
-            const latestMessages = new Map<string, { message: any, streamId: string }>();
+            const latestMessages = new Map<string, message>();
+            const allStreamIds = response.map(item => item.id);
 
             for (const item of response) {
                 const websiteId = item.message.id;
-                // Since xReadGroup returns messages in order, 
-                // the last one we see for a websiteId will be the newest.
+                const sentAtTime = item.message.sentAt ? new Date(item.message.sentAt).getTime() : now;
+
+                if (now - sentAtTime > staleThresholdMs) {
+                    // Even if stale, we skip but we still identify it to be acked below
+                    continue;
+                }
                 latestMessages.set(websiteId, item);
             }
 
-            console.log(`[${regionId}] Processing ${latestMessages.size} unique monitors (skipped ${response.length - latestMessages.size} stale checks)`);
+            if (latestMessages.size > 0) {
+                console.log(`[${workerId}] Processing batch: ${latestMessages.size} unique tasks.`);
 
-            // Process unique websites
-            for (const [websiteId, { message }] of latestMessages.entries()) {
-                console.log(`[${regionId}] Checking: ${message.url}`);
-                try {
-                    await processWebsites(message.url, message.id);
-                    console.log(`[${regionId}] Finished checking: ${message.url}`);
-                } catch (e) {
-                    console.error(`[${regionId}] Error processing website ${message.url}:`, e);
-                }
+                // Process each website with a STRICT per-task timeout
+                const tasks = Array.from(latestMessages.values()).map(async (msg) => {
+                    const taskInfo = `[${msg.message.url}] [ID: ${msg.id}]`;
+                    try {
+                        await withTimeout(
+                            processWebsites(msg.message.url, msg.message.id),
+                            45000, // 45 seconds max per website check
+                            `Task for ${msg.message.url} timed out overall`
+                        );
+                        console.log(`[${workerId}] DONE: ${taskInfo}`);
+                    } catch (e: any) {
+                        console.error(`[${workerId}] FAILED: ${taskInfo} - ${e.message}`);
+                    }
+                });
+
+                await Promise.all(tasks);
             }
 
-            // Acknowledge ALL messages in the batch (including skipped ones)
-            const allStreamIds = response.map(item => item.id);
+            // Always acknowledge everything we read to move the group pointer
             await xAckBulk(regionId, `consumer-group-${regionId}`, allStreamIds);
 
-            console.log(`[${regionId}] Successfully acknowledged batch of ${response.length}`);
-        } catch (error) {
-            console.error(`[${regionId}] Worker error in main loop:`, error);
+        } catch (error: any) {
+            console.error(`[${workerId}] Main Loop Fatal Error:`, error.message);
             await new Promise(resolve => setTimeout(resolve, 5000));
+            // In a cluster, we exit and let the manager restart us
+            process.exit(1);
         }
     }
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+    let timeoutId: any;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), ms);
+    });
+    return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
+
 const processWebsites = async (url: string, websiteId: string) => {
+    let status: "Up" | "Down" = "Up";
+    let timings: any = null;
+
+    // 1. HTTP CHECK (with strict internal timeout)
     try {
+        console.log(`[${workerId}] Performing HTTP check: ${url}`);
         const response = await got(url, {
-            timeout: { request: 10000 },
+            timeout: { request: 15000 }, // 15s for HTTP
             followRedirect: true,
             https: { rejectUnauthorized: false },
-            retry: { limit: 0 } // Don't retry inside the worker to avoid blocking
+            retry: { limit: 0 }
         });
-
-        const timings = response.timings;
-        const phases = timings.phases;
-
-        const dnsTime = Math.round(phases.dns || 0);
-        const tcpTime = Math.round(phases.tcp || 0);
-        const tlsTime = Math.round(phases.tls || 0);
-        const ttfb = Math.round(phases.firstByte || 0);
-        const downloadTime = Math.round(phases.download || 0);
-        const totalTime = Math.round(timings.phases.total || 0);
-
-        await client.websiteTick.create({
-            data: {
-                response_time_ms: totalTime,
-                dns_time_ms: dnsTime,
-                tcp_time_ms: tcpTime,
-                tls_time_ms: tlsTime,
-                ttfb_ms: ttfb,
-                download_time_ms: downloadTime,
-                status: "Up",
-                region_id: regionId,
-                website_id: websiteId,
-            }
-        });
-
-        const ongoingIncident = await client.incident.findFirst({
-            where: {
-                website_id: websiteId,
-                region_id: regionId,
-                status: "ONGOING"
-            }
-        });
-
-        if (ongoingIncident) {
-            const duration = Math.floor((Date.now() - new Date(ongoingIncident.startedAt).getTime()) / 1000);
-            await client.incident.update({
-                where: { id: ongoingIncident.id },
-                data: {
-                    status: "RESOLVED",
-                    resolvedAt: new Date(),
-                    duration
-                }
-            });
-            console.log(`[${regionId}] Incident resolved for ${url} (${duration}s downtime)`);
-        }
+        timings = response.timings;
+        status = "Up";
     } catch (error: any) {
-        console.log(`[${regionId}] Monitor DOWN: ${url} - Error: ${error.message}`);
+        status = "Down";
+        console.log(`[${workerId}] HTTP Check failed for ${url}: ${error.message}`);
+    }
 
-        await client.websiteTick.create({
-            data: {
-                response_time_ms: 0,
-                status: "Down",
-                region_id: regionId,
-                website_id: websiteId,
-            }
+    // 2. DATABASE PERSISTENCE (with strict internal timeout)
+    try {
+        console.log(`[${workerId}] Saving result to DB: ${url}`);
+        await withTimeout(
+            dbWork(websiteId, status, timings),
+            15000, // 15s for DB
+            "Database operation timed out"
+        );
+    } catch (e: any) {
+        console.error(`[${workerId}] DB Persist Error for ${url}: ${e.message}`);
+    }
+}
+
+async function dbWork(websiteId: string, status: "Up" | "Down", timings: any) {
+    const tickData: any = {
+        status,
+        region_id: regionId,
+        website_id: websiteId,
+        response_time_ms: timings ? Math.round(timings.phases.total || 0) : 0,
+    };
+
+    if (timings) {
+        tickData.dns_time_ms = Math.round(timings.phases.dns || 0);
+        tickData.tcp_time_ms = Math.round(timings.phases.tcp || 0);
+        tickData.tls_time_ms = Math.round(timings.phases.tls || 0);
+        tickData.ttfb_ms = Math.round(timings.phases.firstByte || 0);
+        tickData.download_time_ms = Math.round(timings.phases.download || 0);
+    }
+
+    // Tick creation
+    await client.websiteTick.create({ data: tickData });
+
+    // Incident management
+    const ongoingIncident = await client.incident.findFirst({
+        where: { website_id: websiteId, region_id: regionId, status: "ONGOING" }
+    });
+
+    if (status === "Up" && ongoingIncident) {
+        const duration = Math.floor((Date.now() - new Date(ongoingIncident.startedAt).getTime()) / 1000);
+        await client.incident.update({
+            where: { id: ongoingIncident.id },
+            data: { status: "RESOLVED", resolvedAt: new Date(), duration }
         });
-
-        const existingIncident = await client.incident.findFirst({
-            where: {
-                website_id: websiteId,
-                region_id: regionId,
-                status: "ONGOING"
-            }
+    } else if (status === "Down" && !ongoingIncident) {
+        await client.incident.create({
+            data: { website_id: websiteId, region_id: regionId, status: "ONGOING" }
         });
-
-        if (!existingIncident) {
-            await client.incident.create({
-                data: {
-                    website_id: websiteId,
-                    region_id: regionId,
-                    status: "ONGOING"
-                }
-            });
-            console.log(`[${regionId}] New incident created for ${url}`);
-        }
     }
 }
 

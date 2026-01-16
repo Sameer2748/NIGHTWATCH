@@ -28,15 +28,13 @@ export default function MonitorsPage() {
         fetchMonitors()
     }, [])
 
-    // Auto-refresh every 30 seconds for live status
+    // Auto-refresh every 5 seconds for live status
     React.useEffect(() => {
         if (monitors.length === 0) return;
 
-        const thirtySeconds = 30 * 1000;
-
         const interval = setInterval(() => {
             fetchMonitors(true);
-        }, thirtySeconds);
+        }, 5000);
 
         return () => clearInterval(interval);
     }, [monitors])

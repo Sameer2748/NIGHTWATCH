@@ -76,7 +76,7 @@ export default function MonitorDetailPage() {
 
         const interval = setInterval(() => {
             fetchDetails(true)
-        }, 30000)
+        }, 5000)
 
         return () => clearInterval(interval)
     }, [id, selectedRegion])
@@ -129,12 +129,20 @@ export default function MonitorDetailPage() {
     const lastTick = monitor.ticks[0]
     const status = lastTick?.status || "Unknown"
 
-    // Calculate uptime duration - handles clock drift
-    const uptimeSeconds = Math.max(0, differenceInSeconds(now, new Date(monitor.timeAdded)))
+    // Calculate uptime duration - handles clock drift and last incident resolution
+    let uptimeSeconds = 0
+    if (status === 'Up') {
+        const lastResolvedIncident = monitor.incidents?.find(inc => inc.status === 'RESOLVED')
+        const startTime = lastResolvedIncident?.resolvedAt
+            ? new Date(lastResolvedIncident.resolvedAt)
+            : new Date(monitor.timeAdded)
+        uptimeSeconds = Math.max(0, differenceInSeconds(now, startTime))
+    }
     const formatDuration = (totalSeconds: number) => {
         // Handle negative durations from clock drift
         const absoluteSeconds = Math.max(0, Math.floor(totalSeconds))
 
+        if (absoluteSeconds < 5) return "Just now"
         if (absoluteSeconds < 60) return `${absoluteSeconds} sec`
 
         const totalMinutes = Math.floor(absoluteSeconds / 60)
@@ -157,16 +165,52 @@ export default function MonitorDetailPage() {
         return `${years} year${years > 1 ? 's' : ''} ${remainingDays} days`
     }
     // Format ticks for Recharts
-    const chartData = [...monitor.ticks].reverse().map(tick => ({
-        time: format(new Date(tick.createdAt), "HH:mm"),
-        responseTime: tick.response_time_ms,
-        // Real timing breakdown from database
-        nameLookup: tick.dns_time_ms || 0,
-        connection: tick.tcp_time_ms || 0,
-        tls: tick.tls_time_ms || 0,
-        // Include ttfb in data transfer/processing time so the graph reflects total time
-        dataTransfer: (tick.ttfb_ms || 0) + (tick.download_time_ms || 0),
-    }))
+    const chartData = [...monitor.ticks].reverse().map(tick => {
+        const date = new Date(tick.createdAt)
+        return {
+            timestamp: date.getTime(),
+            timeStr: format(date, "HH:mm"),
+            fullDate: format(date, "MMM d, HH:mm:ss"),
+            responseTime: tick.response_time_ms,
+            nameLookup: tick.dns_time_ms || 0,
+            connection: tick.tcp_time_ms || 0,
+            tls: tick.tls_time_ms || 0,
+            dataTransfer: (tick.ttfb_ms || 0) + (tick.download_time_ms || 0),
+        }
+    })
+
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            const data = payload[0].payload
+            const total = payload.reduce((acc: number, entry: any) => acc + (entry.value || 0), 0)
+            return (
+                <div className="bg-[#1e293b]/95 backdrop-blur-md border border-white/10 p-4 rounded-xl shadow-2xl min-w-[220px]">
+                    <div className="mb-3 border-b border-white/10 pb-2">
+                        <p className="text-white font-black text-lg leading-none mb-1">{data.timeStr}</p>
+                        <p className="text-slate-400 text-[10px] font-medium uppercase tracking-wider">{data.fullDate}</p>
+                    </div>
+                    <div className="space-y-2">
+                        {payload.map((entry: any, index: number) => (
+                            <div key={index} className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.stroke }}></div>
+                                    <span className="text-slate-400 text-[11px] capitalize">
+                                        {entry.name.replace(/([A-Z])/g, ' $1')}
+                                    </span>
+                                </div>
+                                <span className="text-white text-[11px] font-mono">{entry.value}ms</span>
+                            </div>
+                        ))}
+                        <div className="pt-2 mt-1 border-t border-white/10 flex items-center justify-between gap-4">
+                            <span className="text-white text-xs font-bold uppercase tracking-tight">Response Time</span>
+                            <span className="text-emerald-400 text-xs font-mono font-bold">{total}ms</span>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+        return null
+    }
 
     return (
         <div className="space-y-6">
@@ -289,7 +333,7 @@ export default function MonitorDetailPage() {
                 <CardContent className="p-6">
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData}>
+                            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorLookup" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
@@ -308,48 +352,51 @@ export default function MonitorDetailPage() {
                                         <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid vertical={false} stroke="#ffffff05" />
+                                <CartesianGrid vertical={false} stroke="#ffffff05" strokeDasharray="3 3" />
                                 <XAxis
-                                    dataKey="time"
+                                    dataKey="timeStr"
+                                    type="category"
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: '#888', fontSize: 10 }}
+                                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
                                     dy={10}
+                                    interval={Math.max(0, Math.floor(chartData.length / 10))}
                                 />
                                 <YAxis
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: '#888', fontSize: 10 }}
+                                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
                                     unit="ms"
                                     dx={-10}
+                                    domain={[0, (dataMax: number) => Math.max(100, Math.ceil(dataMax * 1.2))]}
                                 />
                                 <Tooltip
-                                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                    itemStyle={{ fontSize: '12px' }}
+                                    content={<CustomTooltip />}
+                                    cursor={{ stroke: '#ffffff10', strokeWidth: 1 }}
                                 />
-                                <Area stackId="1" type="monotone" dataKey="nameLookup" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorLookup)" />
-                                <Area stackId="1" type="monotone" dataKey="connection" stroke="#3b82f6" fillOpacity={1} fill="url(#colorConnect)" />
-                                <Area stackId="1" type="monotone" dataKey="tls" stroke="#10b981" fillOpacity={1} fill="url(#colorTls)" />
-                                <Area stackId="1" type="monotone" dataKey="dataTransfer" stroke="#34d399" fillOpacity={1} fill="url(#colorData)" />
+                                <Area stackId="1" type="monotone" dataKey="nameLookup" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorLookup)" isAnimationActive={false} />
+                                <Area stackId="1" type="monotone" dataKey="connection" stroke="#3b82f6" fillOpacity={1} fill="url(#colorConnect)" isAnimationActive={false} />
+                                <Area stackId="1" type="monotone" dataKey="tls" stroke="#10b981" fillOpacity={1} fill="url(#colorTls)" isAnimationActive={false} />
+                                <Area stackId="1" type="monotone" dataKey="dataTransfer" stroke="#34d399" fillOpacity={1} fill="url(#colorData)" isAnimationActive={false} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                     <div className="flex items-center gap-6 mt-6 px-4">
                         <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-violet-500"></div>
-                            <span className="text-xs text-text-muted">Name lookup</span>
+                            <div className="w-2.5 h-2.5 rounded-sm bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.3)]"></div>
+                            <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">DNS</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                            <span className="text-xs text-text-muted">Connection</span>
+                            <div className="w-2.5 h-2.5 rounded-sm bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.3)]"></div>
+                            <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">TCP</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                            <span className="text-xs text-text-muted">TLS handshake</span>
+                            <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"></div>
+                            <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">TLS</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                            <span className="text-xs text-text-muted">Data transfer</span>
+                            <div className="w-2.5 h-2.5 rounded-sm bg-green-400 shadow-[0_0_8px_rgba(52,211,153,0.3)]"></div>
+                            <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">TRANSFER</span>
                         </div>
                     </div>
                 </CardContent>
