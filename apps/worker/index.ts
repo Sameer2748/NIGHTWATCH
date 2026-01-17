@@ -1,4 +1,4 @@
-import { xAckBulk, xReadGroup, initConsumerGroup } from "@redis-stream/index";
+import { xAckBulk, xReadGroup, initConsumerGroup, xAddAlert } from "@redis-stream/index";
 import got from "got"
 import { client } from "@repo/db/client"
 import type { message } from "@redis-stream/types"
@@ -92,17 +92,41 @@ const processWebsites = async (url: string, websiteId: string) => {
     let status: "Up" | "Down" = "Up";
     let timings: any = null;
 
-    // 1. HTTP CHECK (with strict internal timeout)
+    // 1. HTTP CHECK
     try {
         console.log(`[${workerId}] Performing HTTP check: ${url}`);
-        const response = await got(url, {
-            timeout: { request: 15000 }, // 15s for HTTP
-            followRedirect: true,
-            https: { rejectUnauthorized: false },
-            retry: { limit: 0 }
-        });
-        timings = response.timings;
-        status = "Up";
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s strict timeout
+
+        try {
+            const start = performance.now();
+            const response = await fetch(url, {
+                signal: controller.signal,
+                redirect: 'follow',
+            });
+            clearTimeout(timeoutId);
+
+            const end = performance.now();
+            const duration = Math.round(end - start);
+
+            timings = {
+                phases: {
+                    total: duration,
+                    dns: 0, tcp: 0, tls: 0, firstByte: 0, download: duration
+                }
+            };
+
+            if (!response.ok && response.status >= 400) {
+                status = "Down";
+            } else {
+                status = "Up";
+            }
+
+        } catch (fetchError: any) {
+            clearTimeout(timeoutId);
+            throw fetchError;
+        }
+
     } catch (error: any) {
         status = "Down";
         console.log(`[${workerId}] HTTP Check failed for ${url}: ${error.message}`);
@@ -152,9 +176,21 @@ async function dbWork(websiteId: string, status: "Up" | "Down", timings: any) {
             data: { status: "RESOLVED", resolvedAt: new Date(), duration }
         });
     } else if (status === "Down" && !ongoingIncident) {
-        await client.incident.create({
+        const newIncident = await client.incident.create({
             data: { website_id: websiteId, region_id: regionId, status: "ONGOING" }
         });
+
+        // Trigger Alert System
+        const website = await client.website.findUnique({ where: { id: websiteId } });
+        if (website) {
+            await xAddAlert({
+                websiteId,
+                incidentId: newIncident.id,
+                alertType: "WEBSITE_DOWN",
+                url: website.url
+            });
+            console.log(`[${workerId}] Alert triggered for ${website.url} (Incident: ${newIncident.id})`);
+        }
     }
 }
 
