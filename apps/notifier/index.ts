@@ -3,6 +3,7 @@ config();
 import { client } from "@repo/db/client";
 import { initConsumerGroup, xAckAlert, xReadAlerts } from "@redis-stream/index";
 import * as Brevo from '@getbrevo/brevo';
+import { Twilio } from "twilio";
 
 const WORKER_ID = `notifier-${Math.random().toString(36).substr(2, 4)}`;
 
@@ -169,9 +170,16 @@ async function sendCustomEmail(email: string, subject: string, htmlContent: stri
 }
 
 
+
 const apiInstance = new Brevo.TransactionalEmailsApi();
 if (process.env.BREVO_API_KEY) {
     apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+}
+
+// Initialize Twilio
+let twilioClient: Twilio | null = null;
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+    twilioClient = new Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 }
 
 async function sendEmail(email: string, url: string) {
@@ -197,8 +205,6 @@ async function sendEmail(email: string, url: string) {
                 <a href="http://localhost:3001/dashboard" style="display: inline-block; background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 6px; margin-top: 10px;">View Dashboard</a>
             </div>
         `;
-        // Brevo requires a sender. We use a generic one or the user's if they verified it.
-        // Assuming user has at least one verified sender or domain.
         sendSmtpEmail.sender = { "name": "NightWatch Alerts", "email": "mrao27488@gmail.com" };
         sendSmtpEmail.to = [{ "email": email }];
 
@@ -207,20 +213,46 @@ async function sendEmail(email: string, url: string) {
         console.log(`[Email] Sent successfully. Message ID: ${JSON.stringify(data.body)}`);
     } catch (err: any) {
         console.error(`[Email] Failed to send to ${email}:`, err);
-        // Don't throw here to prevent stopping the escalation loop for other valid steps
     }
 }
 
 async function sendSMS(phone: string, url: string) {
-    console.log(`📱 [MOCK SMS] To: ${phone} | Msg: Your website ${url} is currently down!`);
-    // Placeholder for Twilio:
-    // twilioClient.messages.create({ body: `Down: ${url}`, to: phone, ... })
+    if (!twilioClient || !process.env.TWILIO_PHONE_NUMBER) {
+        console.log(`📱 [MOCK SMS] To: ${phone} | Msg: Website ${url} is DOWN! (Add TWILIO credentials to enable real SMS)`);
+        return;
+    }
+
+    try {
+        console.log(`📱 Sending SMS to ${phone} via Twilio...`);
+        const message = await twilioClient.messages.create({
+            body: `🚨 NightWatch Alert: ${url} is DOWN. Please acknowledge immediately.`,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: phone
+        });
+        console.log(`[SMS] Sent successfully. SID: ${message.sid}`);
+    } catch (err: any) {
+        console.error(`[SMS] Failed to send to ${phone}:`, err);
+    }
 }
 
 async function sendCall(phone: string, url: string) {
-    console.log(`📞 [MOCK CALL] Calling: ${phone} | Voice: Automated alert - ${url} is unreachable.`);
-    // Placeholder for Twilio Voice:
-    // twilioClient.calls.create({ url: 'http://demo.twilio.com/docs/voice.xml', to: phone, ... })
+    if (!twilioClient || !process.env.TWILIO_PHONE_NUMBER) {
+        console.log(`📞 [MOCK CALL] To: ${phone} | Voice: Automated alert - ${url} is unreachable. (Add TWILIO credentials to enable real Calls)`);
+        return;
+    }
+
+    try {
+        console.log(`📞 Initiating Call to ${phone} via Twilio...`);
+        // Uses TwiML Bin or default text-to-speech
+        const call = await twilioClient.calls.create({
+            twiml: `<Response><Say>Alert from Night Watch. Your monitor for ${url.replace('https://', '')} is currently down. Please check your dashboard.</Say></Response>`,
+            to: phone,
+            from: process.env.TWILIO_PHONE_NUMBER
+        });
+        console.log(`[Call] Initiated successfully. SID: ${call.sid}`);
+    } catch (err: any) {
+        console.error(`[Call] Failed to initiate call to ${phone}:`, err);
+    }
 }
 
 main();

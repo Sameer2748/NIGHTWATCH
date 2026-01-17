@@ -11,6 +11,7 @@
         "@getbrevo/brevo": "^3.0.1",
         "@redis-stream": "*",
         "@repo/db": "*",
-        "redis": "^4.6.10"
+        "redis": "^4.6.10",
+        "twilio": "^5.11.2"
     }
 }
