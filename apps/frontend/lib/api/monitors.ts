@@ -105,3 +105,11 @@ export async function sendTestAlert(id: string, token: string): Promise<void> {
         }
     });
 }
+
+export async function deleteMonitor(id: string, token: string): Promise<void> {
+    await axios.delete(`${API_BASE_URL}/website/${id}`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+}

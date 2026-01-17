@@ -15,13 +15,15 @@ import {
     DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
 import { tokenManager } from "@/lib/auth/tokenManager"
-import { getMonitors, Monitor } from "@/lib/api/monitors"
+import { getMonitors, Monitor, deleteMonitor } from "@/lib/api/monitors"
 
 export default function MonitorsPage() {
     const router = useRouter()
     const [monitors, setMonitors] = React.useState<Monitor[]>([])
     const [isLoading, setIsLoading] = React.useState(true)
     const [searchQuery, setSearchQuery] = React.useState("")
+    const [isDeleting, setIsDeleting] = React.useState<string | null>(null)
+
 
 
     React.useEffect(() => {
@@ -58,13 +60,37 @@ export default function MonitorsPage() {
         }
     }
 
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation(); // Prevent row click
+
+        if (!confirm("Are you sure you want to delete this monitor? This action cannot be undone.")) return;
+
+        setIsDeleting(id);
+        const token = tokenManager.getToken();
+        if (!token) return;
+
+        try {
+            await deleteMonitor(id, token);
+            toast.success("Monitor deleted successfully");
+            setMonitors(prev => prev.filter(m => m.id !== id));
+        } catch (error) {
+            console.error("Failed to delete monitor:", error);
+            toast.error("Failed to delete monitor");
+        } finally {
+            setIsDeleting(null);
+        }
+    }
+
     const filteredMonitors = monitors.filter(m =>
         m.url.toLowerCase().includes(searchQuery.toLowerCase())
     )
 
+
+
     return (
         <div className="flex flex-col gap-6 max-w-6xl mx-auto w-full">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
+
                 <h1 className="text-3xl font-bold tracking-tight text-text-primary">Monitors</h1>
 
                 <div className="flex items-center gap-3">
@@ -99,7 +125,7 @@ export default function MonitorsPage() {
                         </DropdownMenu>
                     </Button>
                 </div>
-            </div>
+            </div >
 
             <div className="flex flex-col gap-1 mt-4">
                 {isLoading ? (
@@ -176,9 +202,13 @@ export default function MonitorsPage() {
                                                     Acknowledge
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator className="bg-border" />
-                                                <DropdownMenuItem className="flex items-center gap-2 cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-500/10">
+                                                <DropdownMenuItem
+                                                    className="flex items-center gap-2 cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-500/10 focus:text-red-600 focus:bg-red-500/10"
+                                                    onClick={(e) => handleDelete(e, monitor.id)}
+                                                    disabled={isDeleting === monitor.id}
+                                                >
                                                     <Trash2 className="w-4 h-4" />
-                                                    Delete
+                                                    {isDeleting === monitor.id ? "Deleting..." : "Delete"}
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -190,28 +220,30 @@ export default function MonitorsPage() {
                 )}
             </div>
 
-            {!isLoading && monitors.length > 0 && (
-                <div className="mt-8 space-y-4">
-                    <h2 className="text-lg font-semibold text-text-primary">Get the most out of Better Stack</h2>
-                    <div className="bg-card-bg/50 border border-border rounded-xl p-6 flex items-start gap-4 shadow-sm">
-                        <div className="w-10 h-10 rounded-full border-2 border-button-primary flex items-center justify-center shrink-0">
-                            <div className="w-2 h-2 rounded-full bg-button-primary"></div>
-                        </div>
-                        <div className="space-y-4 flex-1">
-                            <div className="flex items-center justify-between">
-                                <h3 className="font-semibold text-text-primary">Connect Slack or Microsoft Teams</h3>
-                                <span className="text-xs text-text-muted font-medium">5 out of 6 steps left</span>
+            {
+                !isLoading && monitors.length > 0 && (
+                    <div className="mt-8 space-y-4">
+                        <h2 className="text-lg font-semibold text-text-primary">Get the most out of Better Stack</h2>
+                        <div className="bg-card-bg/50 border border-border rounded-xl p-6 flex items-start gap-4 shadow-sm">
+                            <div className="w-10 h-10 rounded-full border-2 border-button-primary flex items-center justify-center shrink-0">
+                                <div className="w-2 h-2 rounded-full bg-button-primary"></div>
                             </div>
-                            <p className="text-sm text-text-muted max-w-xl">
-                                Get alerted about new incidents, and acknowledge and resolve incidents directly from Slack.
-                            </p>
-                            <Button variant="outline" className="border-border hover:bg-hover-bg h-9 text-sm">
-                                Integrations
-                            </Button>
+                            <div className="space-y-4 flex-1">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-semibold text-text-primary">Connect Slack or Microsoft Teams</h3>
+                                    <span className="text-xs text-text-muted font-medium">5 out of 6 steps left</span>
+                                </div>
+                                <p className="text-sm text-text-muted max-w-xl">
+                                    Get alerted about new incidents, and acknowledge and resolve incidents directly from Slack.
+                                </p>
+                                <Button variant="outline" className="border-border hover:bg-hover-bg h-9 text-sm">
+                                    Integrations
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     )
 }
