@@ -1,0 +1,16 @@
+{
+    "name": "notifier",
+    "module": "index.ts",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "bun index.ts",
+        "start": "bun index.ts"
+    },
+    "dependencies": {
+        "@getbrevo/brevo": "^3.0.1",
+        "@redis-stream": "*",
+        "@repo/db": "*",
+        "redis": "^4.6.10"
+    }
+}
