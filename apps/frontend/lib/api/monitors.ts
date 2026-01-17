@@ -32,19 +32,43 @@ export interface Incident {
     resolvedAt: string | null;
     duration: number | null;
     status: "ONGOING" | "RESOLVED";
+    acknowledgedAt: string | null;
+    acknowledgedBy: string | null;
     createdAt: string;
     updatedAt: string;
+}
+
+export async function acknowledgeIncident(incidentId: string, token: string): Promise<Incident> {
+    const response = await axios.post(
+        `${API_BASE_URL}/website/incident/${incidentId}/acknowledge`,
+        {},
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+    return response.data;
+}
+
+export interface EscalationStep {
+    id: string;
+    website_id: string;
+    order: number;
+    type: "CALL" | "SMS" | "EMAIL" | "PUSH";
+    value: string;
 }
 
 export interface MonitorDetails extends Monitor {
     ticks: WebsiteTick[];
     incidents: Incident[];
+    escalationSteps?: EscalationStep[];
 }
 
-export async function createMonitor(url: string, token: string): Promise<Monitor> {
+export async function createMonitor(url: string, token: string, escalationSteps?: any[]): Promise<Monitor> {
     const response = await axios.post(
         `${API_BASE_URL}/website`,
-        { url },
+        { url, escalationSteps },
         {
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -72,4 +96,12 @@ export async function getMonitorDetails(id: string, token: string, regionId?: st
         params
     });
     return response.data;
+}
+
+export async function sendTestAlert(id: string, token: string): Promise<void> {
+    await axios.post(`${API_BASE_URL}/website/${id}/test-alert`, {}, {
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
 }
