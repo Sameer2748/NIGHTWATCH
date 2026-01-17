@@ -22,23 +22,60 @@ export const xAddBulk = async (regionId: string, websites: WebsiteData[]) => {
     return await Promise.all(promises);
 }
 
-// Initialize consumer group - call this before reading
-export const initConsumerGroup = async (regionId: string, consumer_group: string) => {
+export const xAddAlert = async (alert: { websiteId: string, incidentId?: string, alertType: string, url: string }) => {
     const c = await getClient();
-    const streamName = getStreamName(regionId);
+    return await c.xAdd('betterstack:alerts', '*', alert as any);
+}
+
+// Initialize consumer group - call this before reading
+export const initConsumerGroup = async (stream: string, consumer_group: string) => {
+    const c = await getClient();
+    const streamName = stream.includes(':') ? stream : getStreamName(stream);
     try {
         // MKSTREAM creates the stream if it doesn't exist
         await c.xGroupCreate(streamName, consumer_group, '$', {
             MKSTREAM: true
         });
-        console.log(`Consumer group '${consumer_group}' created (starting from LATEST)`);
+        console.log(`Consumer group '${consumer_group}' created for ${streamName}`);
     } catch (error: any) {
         if (error.message?.includes('BUSYGROUP')) {
-            console.log(`Consumer group '${consumer_group}' already exists.`);
+            console.log(`Consumer group '${consumer_group}' already exists for ${streamName}.`);
         } else {
             console.error(`Error with consumer group:`, error);
             throw error;
         }
+    }
+}
+
+export const xReadAlerts = async (consumer_group: string, workerId: string): Promise<any[]> => {
+    const c = await getClient();
+    const streamName = 'betterstack:alerts';
+    try {
+        const result = await c.xReadGroup(
+            consumer_group, workerId, {
+            key: streamName,
+            id: ">"
+        }, {
+            'COUNT': 10,
+            'BLOCK': 2000
+        })
+
+        if (!result || result.length === 0) return [];
+
+        return result[0]?.messages || [];
+    } catch (error: any) {
+        console.error("Error reading from Alerts stream:", error.message);
+        return [];
+    }
+}
+
+export const xAckAlert = async (consumer_group: string, eventIds: string[]) => {
+    if (eventIds.length === 0) return;
+    const c = await getClient();
+    try {
+        await (c as any).xAck('betterstack:alerts', consumer_group, ...eventIds);
+    } catch (error: any) {
+        console.error(`Error acknowledging alerts:`, error.message);
     }
 }
 

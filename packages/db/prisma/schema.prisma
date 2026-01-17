@@ -8,21 +8,39 @@ datasource db {
 }
 
 model User {
-  id    String     @id @default(uuid())
-  name  String     @unique
-  password  String  
-  websites Website[]
+  id          String     @id @default(uuid())
+  name        String     @unique
+  email       String?    @unique
+  phoneNumber String?
+  password    String
+  websites    Website[]
 }
 
 model Website {
-  id         String        @id @default(uuid())
-  url        String
-  timeAdded  DateTime
-  ticks      WebsiteTick[]
-  incidents  Incident[]
-  user_id    String
-  user       User    @relation(fields:[user_id], references: [id])
+  id              String           @id @default(uuid())
+  url             String
+  timeAdded       DateTime
+  ticks           WebsiteTick[]
+  incidents       Incident[]
+  user_id         String
+  user            User             @relation(fields: [user_id], references: [id])
+  escalationSteps EscalationStep[]
+}
 
+model EscalationStep {
+  id        String           @id @default(uuid())
+  website_id String
+  website   Website          @relation(fields: [website_id], references: [id])
+  order     Int              // 0, 1, 2... for priority
+  type      NotificationType
+  value     String           // Email or Phone number
+}
+
+enum NotificationType {
+  CALL
+  SMS
+  EMAIL
+  PUSH
 }
 
 model Region {
@@ -33,33 +51,35 @@ model Region {
 }
 
 model WebsiteTick {
-  id               String         @id @default(uuid())
+  id               String        @id @default(uuid())
   response_time_ms Int
-  dns_time_ms      Int?           // DNS lookup time
-  tcp_time_ms      Int?           // TCP connection time
-  tls_time_ms      Int?           // TLS handshake time
-  ttfb_ms          Int?           // Time to first byte
-  download_time_ms Int?           // Download/data transfer time
-  status          WebsiteStatus
-  region          Region         @relation(fields: [region_id], references: [id])
-  website         Website        @relation(fields: [website_id], references: [id])
-  region_id       String
-  website_id      String
-  createdAt     DateTime @default(now())
+  dns_time_ms      Int? // DNS lookup time
+  tcp_time_ms      Int? // TCP connection time
+  tls_time_ms      Int? // TLS handshake time
+  ttfb_ms          Int? // Time to first byte
+  download_time_ms Int? // Download/data transfer time
+  status           WebsiteStatus
+  region           Region        @relation(fields: [region_id], references: [id])
+  website          Website       @relation(fields: [website_id], references: [id])
+  region_id        String
+  website_id       String
+  createdAt        DateTime      @default(now())
 }
 
 model Incident {
-  id          String    @id @default(uuid())
-  website     Website   @relation(fields: [website_id], references: [id])
-  website_id  String
-  region      Region    @relation(fields: [region_id], references: [id])
-  region_id   String
-  startedAt   DateTime  @default(now())
-  resolvedAt  DateTime?
-  duration    Int?      // Duration in seconds
-  status      IncidentStatus @default(ONGOING)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id             String         @id @default(uuid())
+  website        Website        @relation(fields: [website_id], references: [id])
+  website_id     String
+  region         Region         @relation(fields: [region_id], references: [id])
+  region_id      String
+  startedAt      DateTime       @default(now())
+  resolvedAt     DateTime?
+  duration       Int? // Duration in seconds
+  status         IncidentStatus @default(ONGOING)
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
 
 enum IncidentStatus {
