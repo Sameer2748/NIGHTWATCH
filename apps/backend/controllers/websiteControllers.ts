@@ -225,3 +225,48 @@ export async function sendTestAlert(req: Request, res: Response): Promise<void> 
     res.status(500).json({ message: "Internal server error" });
   }
 }
+
+export async function deleteWebsite(req: Request, res: Response): Promise<void> {
+  try {
+    const { websiteId } = req.params;
+
+    // Verify ownership
+    const website = await client.website.findUnique({
+      where: {
+        id: websiteId,
+        user_id: req.userId as string
+      }
+    });
+
+    if (!website) {
+      res.status(404).json({ message: "Website not found or access denied" });
+      return;
+    }
+
+    // Delete related data manually (simulating cascade)
+    // 1. Ticks
+    await client.websiteTick.deleteMany({
+      where: { website_id: websiteId }
+    });
+
+    // 2. Incidents
+    await client.incident.deleteMany({
+      where: { website_id: websiteId }
+    });
+
+    // 3. Escalation Steps
+    await client.escalationStep.deleteMany({
+      where: { website_id: websiteId }
+    });
+
+    // 4. Delete Website
+    await client.website.delete({
+      where: { id: websiteId }
+    });
+
+    res.status(200).json({ message: "Monitor deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting website:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+}
