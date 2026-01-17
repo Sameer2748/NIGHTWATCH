@@ -10,6 +10,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@redis-stream": "workspace:*",
     "@repo/db": "*",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.2",

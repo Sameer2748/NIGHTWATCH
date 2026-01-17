@@ -1,10 +1,11 @@
 import { client } from "@repo/db/client"
 import type { Request, Response } from "express";
 import got from "got";
+import { xAddAlert } from "@redis-stream/index";
 
 export async function postwebsiteDetails(req: Request, res: Response): Promise<void> {
   try {
-    const { url } = req.body;
+    const { url, escalationSteps } = req.body;
     if (!url) {
       res.status(411).json({ message: "URL is required" });
       return;
@@ -15,7 +16,17 @@ export async function postwebsiteDetails(req: Request, res: Response): Promise<v
       data: {
         url,
         timeAdded: new Date(),
-        user_id: req.userId as string
+        user_id: req.userId as string,
+        escalationSteps: escalationSteps ? {
+          create: escalationSteps.map((step: any) => ({
+            type: step.type,
+            value: step.value,
+            order: step.order
+          }))
+        } : undefined
+      },
+      include: {
+        escalationSteps: true
       }
     });
 
@@ -119,6 +130,7 @@ export async function getwebsiteDetails(req: Request, res: Response): Promise<vo
         id: websiteId
       },
       include: {
+        escalationSteps: true,
         ticks: {
           where: regionId ? {
             region_id: regionId
@@ -149,5 +161,67 @@ export async function getwebsiteDetails(req: Request, res: Response): Promise<vo
     console.error("Error getting website details:", error);
     res.status(500).json({ message: "Internal server error" });
     return;
+  }
+}
+
+export async function acknowledgeIncident(req: Request, res: Response): Promise<void> {
+  try {
+    const { incidentId } = req.params;
+    const incident = await client.incident.findUnique({
+      where: { id: incidentId }
+    });
+
+    if (!incident) {
+      res.status(404).json({ message: "Incident not found" });
+      return;
+    }
+
+    if (incident.status === "RESOLVED") {
+      res.status(400).json({ message: "Incident already resolved" });
+      return;
+    }
+
+    const updatedIncident = await client.incident.update({
+      where: { id: incidentId },
+      data: {
+        acknowledgedAt: new Date(),
+        acknowledgedBy: req.userId as string
+      }
+    });
+
+    res.status(200).json(updatedIncident);
+  } catch (error) {
+    console.error("Error acknowledging incident:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function sendTestAlert(req: Request, res: Response): Promise<void> {
+  try {
+    const { websiteId } = req.params;
+
+    const website = await client.website.findUnique({
+      where: {
+        id: websiteId,
+        user_id: req.userId as string
+      }
+    });
+
+    if (!website) {
+      res.status(404).json({ message: "Website not found" });
+      return;
+    }
+
+    // Publish Test Alert to Redis
+    await xAddAlert({
+      websiteId: website.id,
+      alertType: "TEST_ALERT",
+      url: website.url
+    });
+
+    res.status(200).json({ message: "Test alert triggered" });
+  } catch (error) {
+    console.error("Error triggering test alert:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 }

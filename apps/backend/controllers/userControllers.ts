@@ -60,7 +60,9 @@ export async function signUp(req: Request, res: Response) {
     const newUser = await client.user.create({
       data: {
         name: data.data.name,
-        password: data.data.password
+        password: data.data.password,
+        email: data.data.email,
+        phoneNumber: data.data.phoneNumber
       }
     })
 
