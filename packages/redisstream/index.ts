@@ -22,7 +22,7 @@ export const xAddBulk = async (regionId: string, websites: WebsiteData[]) => {
     return await Promise.all(promises);
 }
 
-export const xAddAlert = async (alert: { websiteId: string, incidentId?: string, alertType: string, url: string }) => {
+export const xAddAlert = async (alert: { websiteId: string, incidentId?: string, alertType: string, url: string, message?: string }) => {
     const c = await getClient();
     return await c.xAdd('betterstack:alerts', '*', alert as any);
 }

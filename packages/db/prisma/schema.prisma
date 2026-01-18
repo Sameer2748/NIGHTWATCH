@@ -23,6 +23,7 @@ model Website {
   ticks           WebsiteTick[]
   incidents       Incident[]
   user_id         String
+  keywordCheck    String?          @default("")
   user            User             @relation(fields: [user_id], references: [id])
   escalationSteps EscalationStep[]
 }
@@ -63,6 +64,7 @@ model WebsiteTick {
   website          Website       @relation(fields: [website_id], references: [id])
   region_id        String
   website_id       String
+  message          String?
   createdAt        DateTime      @default(now())
 }
 

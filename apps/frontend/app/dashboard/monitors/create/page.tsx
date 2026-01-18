@@ -35,6 +35,7 @@ interface EscalationContact {
 export default function CreateMonitorPage() {
     const router = useRouter()
     const [url, setUrl] = React.useState("")
+    const [keyword, setKeyword] = React.useState("")
     const [isLoading, setIsLoading] = React.useState(false)
     const [emailEnabled, setEmailEnabled] = React.useState(true)
     const [contacts, setContacts] = React.useState<EscalationContact[]>([])
@@ -88,7 +89,7 @@ export default function CreateMonitorPage() {
                 }
             })
 
-            await createMonitor(url, token, escalationSteps)
+            await createMonitor(url, token, escalationSteps, keyword)
             toast.success("Monitor and Escalation Policy created")
             router.push("/dashboard/monitors")
         } catch (error) {
@@ -132,6 +133,20 @@ export default function CreateMonitorPage() {
                                     placeholder="https://example.com"
                                     value={url}
                                     onChange={(e) => setUrl(e.target.value)}
+                                    className="bg-bg-primary/50 border-border h-11 focus:ring-button-primary"
+                                />
+                            </div>
+
+                            <div className="space-y-3">
+                                <Label htmlFor="keyword" className="text-sm font-medium flex items-center gap-2">
+                                    Keyword Check (Optional)
+                                    <span className="text-xs text-text-muted font-normal">- Mark as down if this word is missing</span>
+                                </Label>
+                                <Input
+                                    id="keyword"
+                                    placeholder="e.g. Welcome"
+                                    value={keyword}
+                                    onChange={(e) => setKeyword(e.target.value)}
                                     className="bg-bg-primary/50 border-border h-11 focus:ring-button-primary"
                                 />
                             </div>

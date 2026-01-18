@@ -35,6 +35,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { tokenManager } from "@/lib/auth/tokenManager"
+import { authAPI } from "@/lib/api/auth"
 
 const data = {
   user: {
@@ -76,6 +78,30 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { theme, toggleTheme } = useTheme();
+  const [userData, setUserData] = React.useState({
+    name: "Nightwatcher",
+    email: "admin@nightwatch.io",
+    avatar: "/avatars/shadcn.jpg",
+  });
+
+  React.useEffect(() => {
+    const fetchUser = async () => {
+      const token = tokenManager.getToken();
+      if (token) {
+        try {
+          const user = await authAPI.getCurrentUser(token);
+          setUserData({
+            name: user.name,
+            email: user.email,
+            avatar: "/avatars/shadcn.jpg"
+          });
+        } catch (err) {
+          console.error("Failed to fetch user", err);
+        }
+      }
+    };
+    fetchUser();
+  }, []);
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -117,7 +143,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={userData} />
       </SidebarFooter>
     </Sidebar>
   )

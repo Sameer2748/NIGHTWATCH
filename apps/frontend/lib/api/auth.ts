@@ -21,6 +21,7 @@ export interface SignInResponse {
 export interface SignUpRequest {
     name: string;
     password: string;
+    email?: string;
 }
 
 export interface SignUpResponse {
@@ -38,4 +39,13 @@ export const authAPI = {
         const response = await apiClient.post<SignUpResponse>('/user/signup', data);
         return response.data;
     },
+
+    getCurrentUser: async (token: string) => {
+        const response = await apiClient.get('/user/me', {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        return response.data;
+    }
 };

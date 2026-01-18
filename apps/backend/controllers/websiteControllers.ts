@@ -5,7 +5,7 @@ import { xAddAlert } from "@redis-stream/index";
 
 export async function postwebsiteDetails(req: Request, res: Response): Promise<void> {
   try {
-    const { url, escalationSteps } = req.body;
+    const { url, escalationSteps, keywordCheck } = req.body;
     if (!url) {
       res.status(411).json({ message: "URL is required" });
       return;
@@ -15,6 +15,7 @@ export async function postwebsiteDetails(req: Request, res: Response): Promise<v
     const website = await client.website.create({
       data: {
         url,
+        keywordCheck: keywordCheck || null,
         timeAdded: new Date(),
         user_id: req.userId as string,
         escalationSteps: escalationSteps ? {

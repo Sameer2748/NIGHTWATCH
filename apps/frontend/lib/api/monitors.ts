@@ -65,10 +65,10 @@ export interface MonitorDetails extends Monitor {
     escalationSteps?: EscalationStep[];
 }
 
-export async function createMonitor(url: string, token: string, escalationSteps?: any[]): Promise<Monitor> {
+export async function createMonitor(url: string, token: string, escalationSteps?: any[], keywordCheck?: string): Promise<Monitor> {
     const response = await axios.post(
         `${API_BASE_URL}/website`,
-        { url, escalationSteps },
+        { url, escalationSteps, keywordCheck },
         {
             headers: {
                 Authorization: `Bearer ${token}`,

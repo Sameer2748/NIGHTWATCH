@@ -49,7 +49,7 @@ export default function SignUpPage() {
         setLoading(true);
 
         try {
-            const response = await authAPI.signUp({ name, password });
+            const response = await authAPI.signUp({ name, email: name, password });
 
             // Store token
             tokenManager.setToken(response.jwt);

@@ -91,10 +91,18 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, message: string):
 const processWebsites = async (url: string, websiteId: string) => {
     let status: "Up" | "Down" = "Up";
     let timings: any = null;
+    let message: string | undefined = undefined;
 
     // 1. HTTP CHECK
     try {
         console.log(`[${workerId}] Performing HTTP check: ${url}`);
+
+        // Fetch website config to see if keyword check is needed
+        const websiteConfig = await client.website.findUnique({
+            where: { id: websiteId },
+            select: { keywordCheck: true }
+        });
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s strict timeout
 
@@ -118,8 +126,19 @@ const processWebsites = async (url: string, websiteId: string) => {
 
             if (!response.ok && response.status >= 400) {
                 status = "Down";
+                message = `HTTP Status ${response.status}: ${response.statusText}`;
             } else {
                 status = "Up";
+
+                // Keyword Assertion Check
+                if (websiteConfig?.keywordCheck && websiteConfig.keywordCheck.trim() !== "") {
+                    const bodyText = await response.text();
+                    if (!bodyText.includes(websiteConfig.keywordCheck)) {
+                        status = "Down";
+                        message = `Keyword Check Failed: Expected "${websiteConfig.keywordCheck}"`;
+                        console.log(`[${workerId}] ${message} for ${url}`);
+                    }
+                }
             }
 
         } catch (fetchError: any) {
@@ -129,6 +148,7 @@ const processWebsites = async (url: string, websiteId: string) => {
 
     } catch (error: any) {
         status = "Down";
+        message = `Network Error: ${error.message}`;
         console.log(`[${workerId}] HTTP Check failed for ${url}: ${error.message}`);
     }
 
@@ -136,7 +156,7 @@ const processWebsites = async (url: string, websiteId: string) => {
     try {
         console.log(`[${workerId}] Saving result to DB: ${url}`);
         await withTimeout(
-            dbWork(websiteId, status, timings),
+            dbWork(websiteId, status, timings, message),
             15000, // 15s for DB
             "Database operation timed out"
         );
@@ -145,12 +165,13 @@ const processWebsites = async (url: string, websiteId: string) => {
     }
 }
 
-async function dbWork(websiteId: string, status: "Up" | "Down", timings: any) {
+async function dbWork(websiteId: string, status: "Up" | "Down", timings: any, message?: string) {
     const tickData: any = {
         status,
         region_id: regionId,
         website_id: websiteId,
         response_time_ms: timings ? Math.round(timings.phases.total || 0) : 0,
+        message: message || null
     };
 
     if (timings) {
@@ -187,7 +208,8 @@ async function dbWork(websiteId: string, status: "Up" | "Down", timings: any) {
                 websiteId,
                 incidentId: newIncident.id,
                 alertType: "WEBSITE_DOWN",
-                url: website.url
+                url: website.url,
+                message: message || "Unknown Error"
             });
             console.log(`[${workerId}] Alert triggered for ${website.url} (Incident: ${newIncident.id})`);
         }

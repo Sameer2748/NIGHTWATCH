@@ -27,11 +27,11 @@ async function main() {
 
             for (const msg of messages) {
                 console.log(`[${WORKER_ID}] Raw Msg:`, JSON.stringify(msg.message));
-                const { websiteId, incidentId, alertType, url } = msg.message;
-                console.log(`[${WORKER_ID}] Received Alert: ${alertType} for ${url} (Incident: ${incidentId})`);
+                const { websiteId, incidentId, alertType, url, message } = msg.message;
+                console.log(`[${WORKER_ID}] Received Alert: ${alertType} for ${url} (Incident: ${incidentId}) Reason: ${message}`);
 
                 if (alertType === "WEBSITE_DOWN") {
-                    await handleEscalation(websiteId, incidentId, url);
+                    await handleEscalation(websiteId, incidentId, url, message);
                 } else if (alertType === "TEST_ALERT") {
                     await handleTestAlert(websiteId, url);
                 }
@@ -45,7 +45,7 @@ async function main() {
     }
 }
 
-async function handleEscalation(websiteId: string, incidentId: string | undefined, url: string) {
+async function handleEscalation(websiteId: string, incidentId: string | undefined, url: string, message?: string) {
     // 1. Fetch website and its escalation steps
     const website = await client.website.findUnique({
         where: { id: websiteId },
@@ -86,10 +86,10 @@ async function handleEscalation(websiteId: string, incidentId: string | undefine
         try {
             switch (step.type) {
                 case 'EMAIL':
-                    await sendEmail(targetValue, url);
+                    await sendEmail(targetValue, url, message);
                     break;
                 case 'SMS':
-                    await sendSMS(targetValue, url);
+                    await sendSMS(targetValue, url, message);
                     break;
                 case 'CALL':
                     await sendCall(targetValue, url);
@@ -182,9 +182,9 @@ if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
     twilioClient = new Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 }
 
-async function sendEmail(email: string, url: string) {
+async function sendEmail(email: string, url: string, message?: string) {
     if (!process.env.BREVO_API_KEY) {
-        console.log(`📧 [MOCK EMAIL] To: ${email} | Subject: Alert: ${url} is DOWN! (Add BREVO_API_KEY to enable real emails)`);
+        console.log(`📧 [MOCK EMAIL] To: ${email} | Subject: Alert: ${url} is DOWN! | Reason: ${message || 'Unknown'}`);
         return;
     }
 
@@ -197,6 +197,10 @@ async function sendEmail(email: string, url: string) {
             <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
                 <h2 style="color: #ef4444;">Website Down Alert</h2>
                 <p>Your monitor for <a href="${url}">${url}</a> has triggered an alert.</p>
+                <div style="background: #fff5f5; border-left: 4px solid #ef4444; padding: 15px; margin: 20px 0;">
+                    <strong style="color: #b91c1c;">Make sure to check:</strong>
+                    <p style="margin: 5px 0 0 0; color: #7f1d1d;">${message || "No error details available"}</p>
+                </div>
                 <p style="background: #f1f5f9; padding: 10px; border-radius: 4px;">
                     <strong>Status:</strong> DOWN<br/>
                     <strong>Time:</strong> ${new Date().toLocaleString()}
@@ -216,20 +220,23 @@ async function sendEmail(email: string, url: string) {
     }
 }
 
-async function sendSMS(phone: string, url: string) {
+async function sendSMS(phone: string, url: string, message?: string) {
     if (!twilioClient || !process.env.TWILIO_PHONE_NUMBER) {
-        console.log(`📱 [MOCK SMS] To: ${phone} | Msg: Website ${url} is DOWN! (Add TWILIO credentials to enable real SMS)`);
+        console.log(`📱 [MOCK SMS] To: ${phone} | Msg: Website ${url} is DOWN! Reason: ${message || 'Unknown'}`);
         return;
     }
 
     try {
         console.log(`📱 Sending SMS to ${phone} via Twilio...`);
-        const message = await twilioClient.messages.create({
-            body: `🚨 NightWatch Alert: ${url} is DOWN. Please acknowledge immediately.`,
+        const messageBody = message ? `Reason: ${message}` : '';
+        const smsBody = `🚨 NightWatch Alert: ${url} is DOWN. ${messageBody} Please acknowledge immediately.`;
+
+        const textMessage = await twilioClient.messages.create({
+            body: smsBody.substring(0, 159), // Truncate to avoid multi-segment issues lightly
             from: process.env.TWILIO_PHONE_NUMBER,
             to: phone
         });
-        console.log(`[SMS] Sent successfully. SID: ${message.sid}`);
+        console.log(`[SMS] Sent successfully. SID: ${textMessage.sid}`);
     } catch (err: any) {
         console.error(`[SMS] Failed to send to ${phone}:`, err);
     }

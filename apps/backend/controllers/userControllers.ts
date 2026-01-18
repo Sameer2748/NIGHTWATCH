@@ -77,3 +77,36 @@ export async function signUp(req: Request, res: Response) {
   }
 }
 
+export async function getUserDetails(req: Request, res: Response) {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const user = await client.user.findUnique({
+      where: {
+        id: userId as string
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phoneNumber: true
+      }
+    });
+
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    res.status(200).json(user);
+    return;
+  } catch (error) {
+    console.error("Error fetching user details:", error);
+    res.status(500).json({ message: "Internal server error" });
+    return;
+  }
+}
