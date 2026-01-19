@@ -20,6 +20,7 @@ model Website {
   id              String           @id @default(uuid())
   url             String
   timeAdded       DateTime
+  paused          Boolean          @default(false)
   ticks           WebsiteTick[]
   incidents       Incident[]
   user_id         String

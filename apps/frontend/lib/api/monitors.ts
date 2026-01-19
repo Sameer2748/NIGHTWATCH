@@ -7,8 +7,11 @@ export interface Monitor {
     url: string;
     timeAdded: string;
     user_id: string;
+    paused: boolean;
     ticks?: WebsiteTick[];
 }
+
+
 
 export interface WebsiteTick {
     id: string;
@@ -104,6 +107,19 @@ export async function sendTestAlert(id: string, token: string): Promise<void> {
             Authorization: `Bearer ${token}`
         }
     });
+}
+
+export async function toggleMonitorPause(id: string, paused: boolean, token: string): Promise<Monitor> {
+    const response = await axios.patch(
+        `${API_BASE_URL}/website/${id}/pause`,
+        { paused },
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+    return response.data;
 }
 
 export async function deleteMonitor(id: string, token: string): Promise<void> {

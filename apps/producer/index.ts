@@ -24,6 +24,7 @@ async function main() {
         console.log(`[${timestamp}] [${cycleId}] Producer: Cycle #${cycleCount} starting...`);
 
         const websites = await client.website.findMany({
+            where: { paused: false },
             select: { url: true, id: true }
         });
 

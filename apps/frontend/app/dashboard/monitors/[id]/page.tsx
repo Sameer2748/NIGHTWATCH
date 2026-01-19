@@ -41,7 +41,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { getMonitorDetails, MonitorDetails, WebsiteTick, acknowledgeIncident, sendTestAlert } from "@/lib/api/monitors"
+import { getMonitorDetails, MonitorDetails, WebsiteTick, acknowledgeIncident, sendTestAlert, toggleMonitorPause } from "@/lib/api/monitors"
 import { tokenManager } from "@/lib/auth/tokenManager"
 
 export default function MonitorDetailPage({ params }: { params: { id: string } }) {
@@ -55,6 +55,7 @@ export default function MonitorDetailPage({ params }: { params: { id: string } }
     const [timeRange, setTimeRange] = React.useState<'day' | 'week' | 'month'>('day')
     const [isAcknowledging, setIsAcknowledging] = React.useState(false)
     const [isSendingTestAlert, setIsSendingTestAlert] = React.useState(false)
+    const [isPausing, setIsPausing] = React.useState(false)
 
     const [now, setNow] = React.useState(new Date())
 
@@ -98,6 +99,26 @@ export default function MonitorDetailPage({ params }: { params: { id: string } }
             toast.error("Failed to send test alert");
         } finally {
             setIsSendingTestAlert(false);
+        }
+    }
+
+    const handlePause = async () => {
+        if (!monitor) return;
+        setIsPausing(true);
+        try {
+            const token = tokenManager.getToken();
+            if (!token) throw new Error("No token");
+
+            const newStatus = !monitor.paused;
+            await toggleMonitorPause(id, newStatus, token);
+
+            toast.success(newStatus ? "Monitor paused" : "Monitor resumed");
+            setMonitor(prev => prev ? { ...prev, paused: newStatus } : null);
+        } catch (err) {
+            console.error("Failed to toggle pause:", err);
+            toast.error("Failed to update monitor status");
+        } finally {
+            setIsPausing(false);
         }
     }
 
@@ -399,9 +420,15 @@ export default function MonitorDetailPage({ params }: { params: { id: string } }
                                 <AlertCircle className="w-3.5 h-3.5" />
                                 Incidents
                             </Button>
-                            <Button variant="outline" size="sm" className="gap-1.5 border-border-color bg-card-bg hover:bg-white/5 text-xs h-8">
-                                <Pause className="w-3.5 h-3.5" />
-                                Pause
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5 border-border-color bg-card-bg hover:bg-white/5 text-xs h-8"
+                                onClick={handlePause}
+                                disabled={isPausing}
+                            >
+                                {monitor.paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                                {isPausing ? "Updating..." : (monitor.paused ? "Resume" : "Pause")}
                             </Button>
                             <Button variant="outline" size="sm" className="gap-1.5 border-border-color bg-card-bg hover:bg-white/5 text-xs h-8">
                                 <Settings className="w-3.5 h-3.5" />

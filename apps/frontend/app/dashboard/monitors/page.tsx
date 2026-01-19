@@ -15,7 +15,7 @@ import {
     DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
 import { tokenManager } from "@/lib/auth/tokenManager"
-import { getMonitors, Monitor, deleteMonitor } from "@/lib/api/monitors"
+import { getMonitors, Monitor, deleteMonitor, toggleMonitorPause } from "@/lib/api/monitors"
 
 export default function MonitorsPage() {
     const router = useRouter()
@@ -23,8 +23,7 @@ export default function MonitorsPage() {
     const [isLoading, setIsLoading] = React.useState(true)
     const [searchQuery, setSearchQuery] = React.useState("")
     const [isDeleting, setIsDeleting] = React.useState<string | null>(null)
-
-
+    const [isPausing, setIsPausing] = React.useState<string | null>(null)
 
     React.useEffect(() => {
         fetchMonitors()
@@ -81,11 +80,29 @@ export default function MonitorsPage() {
         }
     }
 
+    const handlePause = async (e: React.MouseEvent, monitor: Monitor) => {
+        e.stopPropagation();
+        setIsPausing(monitor.id);
+        const token = tokenManager.getToken();
+        if (!token) return;
+
+        try {
+            const newStatus = !monitor.paused;
+            await toggleMonitorPause(monitor.id, newStatus, token);
+            toast.success(newStatus ? "Monitor paused" : "Monitor resumed");
+            // Update local state
+            setMonitors(prev => prev.map(m => m.id === monitor.id ? { ...m, paused: newStatus } : m));
+        } catch (error) {
+            console.error("Failed to toggle pause:", error);
+            toast.error("Failed to update monitor status");
+        } finally {
+            setIsPausing(null);
+        }
+    }
+
     const filteredMonitors = monitors.filter(m =>
         m.url.toLowerCase().includes(searchQuery.toLowerCase())
     )
-
-
 
     return (
         <div className="flex flex-col gap-6 max-w-6xl mx-auto w-full">
@@ -193,9 +210,13 @@ export default function MonitorsPage() {
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="bg-card-bg border-border w-48">
-                                                <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
-                                                    <Pause className="w-4 h-4 text-orange-500" />
-                                                    Pause
+                                                <DropdownMenuItem
+                                                    className="flex items-center gap-2 cursor-pointer"
+                                                    onClick={(e) => handlePause(e, monitor)}
+                                                    disabled={isPausing === monitor.id}
+                                                >
+                                                    {monitor.paused ? <Play className="w-4 h-4 text-green-500" /> : <Pause className="w-4 h-4 text-orange-500" />}
+                                                    {isPausing === monitor.id ? "Updating..." : (monitor.paused ? "Resume" : "Pause")}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
                                                     <Activity className="w-4 h-4" />

@@ -271,3 +271,34 @@ export async function deleteWebsite(req: Request, res: Response): Promise<void> 
     res.status(500).json({ message: "Internal server error" });
   }
 }
+
+export async function togglePause(req: Request, res: Response): Promise<void> {
+  try {
+    const { websiteId } = req.params;
+    const { paused } = req.body; // Expect explicit boolean or just toggle? Explicit is safer.
+
+    const website = await client.website.findUnique({
+      where: {
+        id: websiteId,
+        user_id: req.userId as string
+      }
+    });
+
+    if (!website) {
+      res.status(404).json({ message: "Website not found" });
+      return;
+    }
+
+    const updatedWebsite = await client.website.update({
+      where: { id: websiteId },
+      data: {
+        paused: paused
+      }
+    });
+
+    res.status(200).json(updatedWebsite);
+  } catch (error) {
+    console.error("Error toggling pause:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+}
