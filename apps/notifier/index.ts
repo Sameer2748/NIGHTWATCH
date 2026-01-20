@@ -90,15 +90,8 @@ async function handleEscalation(websiteId: string, incidentId: string | undefine
                     break;
             }
 
-            // Note: In a production system, we would NOT await the next step here.
-            // We would schedule a background job to check for acknowledgement.
-            // But to demonstrate the logic for the user, we show the sequential flow.
-
-            // In a real system, we'd wait here for X minutes before the next step
-            // For demo purposes, we can add a small sleep or just continue
             await new Promise(resolve => setTimeout(resolve, 5000));
 
-            // Simulate a "stop if someone picks up" logic for calls (simplified for demo)
             if (step.type === 'CALL') {
                 break;
             }
