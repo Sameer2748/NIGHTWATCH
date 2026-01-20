@@ -12,7 +12,6 @@ if (!regionId || !workerId) {
 }
 
 async function main() {
-
     try {
         await initConsumerGroup(regionId, `consumer-group-${regionId}`);
     } catch (e) {
@@ -21,7 +20,6 @@ async function main() {
 
     while (true) {
         try {
-            // Read with a short block to keep the loop responsive
             const response = await xReadGroup(regionId, `consumer-group-${regionId}`, workerId) as message[];
 
             if (!response || response.length === 0) {
@@ -30,7 +28,7 @@ async function main() {
             }
 
             const now = Date.now();
-            const staleThresholdMs = 15 * 60 * 1000; // 15 mins
+            const staleThresholdMs = 15 * 60 * 1000;
 
             const latestMessages = new Map<string, message>();
             const allStreamIds = response.map(item => item.id);
@@ -40,32 +38,25 @@ async function main() {
                 const sentAtTime = item.message.sentAt ? new Date(item.message.sentAt).getTime() : now;
 
                 if (now - sentAtTime > staleThresholdMs) {
-                    // Even if stale, we skip but we still identify it to be acked below
                     continue;
                 }
                 latestMessages.set(websiteId, item);
             }
 
             if (latestMessages.size > 0) {
-
-                // HEALTH CHECK: Check Nightwatch network health ONCE per batch
                 const isNightwatchHealthy = await checkNightwatchHealth();
                 await alertMasterOnStateChange(workerId, regionId, isNightwatchHealthy);
 
                 if (!isNightwatchHealthy) {
-                    // Nightwatch network is down - skip this entire batch
-                    // Still acknowledge messages to prevent reprocessing
                     await xAckBulk(regionId, `consumer-group-${regionId}`, allStreamIds);
                     continue;
                 }
 
-                // Process each website with a STRICT per-task timeout
                 const tasks = Array.from(latestMessages.values()).map(async (msg) => {
-                    const taskInfo = `[${msg.message.url}] [ID: ${msg.id}]`;
                     try {
                         await withTimeout(
                             processWebsites(msg.message.url, msg.message.id),
-                            45000, // 45 seconds max per website check
+                            45000,
                             `Task for ${msg.message.url} timed out overall`
                         );
                     } catch (e: any) {
@@ -75,12 +66,10 @@ async function main() {
                 await Promise.all(tasks);
             }
 
-            // Always acknowledge everything we read to move the group pointer
             await xAckBulk(regionId, `consumer-group-${regionId}`, allStreamIds);
 
         } catch (error: any) {
             await new Promise(resolve => setTimeout(resolve, 5000));
-            // In a cluster, we exit and let the manager restart us
             process.exit(1);
         }
     }
@@ -99,17 +88,14 @@ const processWebsites = async (url: string, websiteId: string) => {
     let timings: any = null;
     let message: string | undefined = undefined;
 
-    // 1. HTTP CHECK
     try {
-
-        // Fetch website config to see if keyword check is needed
         const websiteConfig = await client.website.findUnique({
             where: { id: websiteId },
             select: { keywordCheck: true }
         });
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s strict timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
         try {
             const start = performance.now();
@@ -135,7 +121,6 @@ const processWebsites = async (url: string, websiteId: string) => {
             } else {
                 status = "Up";
 
-                // Keyword Assertion Check
                 if (websiteConfig?.keywordCheck && websiteConfig.keywordCheck.trim() !== "") {
                     const bodyText = await response.text();
                     if (!bodyText.includes(websiteConfig.keywordCheck)) {
@@ -151,16 +136,14 @@ const processWebsites = async (url: string, websiteId: string) => {
         }
 
     } catch (error: any) {
-        // Website is down (we already checked Nightwatch health at batch level)
         status = "Down";
         message = `Network Error: ${error.message}`;
     }
 
-    // 2. DATABASE PERSISTENCE (with strict internal timeout)
     try {
         await withTimeout(
             dbWork(websiteId, status, timings, message),
-            15000, // 15s for DB
+            15000,
             "Database operation timed out"
         );
     } catch (e: any) {
@@ -184,10 +167,8 @@ async function dbWork(websiteId: string, status: "Up" | "Down", timings: any, me
         tickData.download_time_ms = Math.round(timings.phases.download || 0);
     }
 
-    // Tick creation
     await client.websiteTick.create({ data: tickData });
 
-    // Incident management
     const ongoingIncident = await client.incident.findFirst({
         where: { website_id: websiteId, region_id: regionId, status: "ONGOING" }
     });
@@ -203,7 +184,6 @@ async function dbWork(websiteId: string, status: "Up" | "Down", timings: any, me
             data: { website_id: websiteId, region_id: regionId, status: "ONGOING" }
         });
 
-        // Trigger Alert System
         const website = await client.website.findUnique({ where: { id: websiteId } });
         if (website) {
             await xAddAlert({
