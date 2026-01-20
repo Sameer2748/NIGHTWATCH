@@ -67,11 +67,9 @@ export default function CreateStatusPage() {
         }
     }
 
-    // Auto-generate slug
     const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value
         setName(val)
-        // Simple slugify
         setSlug(val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''))
     }
 
@@ -146,8 +144,8 @@ export default function CreateStatusPage() {
                                     <div
                                         key={monitor.id}
                                         className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedMonitors.includes(monitor.id)
-                                                ? 'bg-button-primary/10 border-button-primary'
-                                                : 'bg-bg-primary border-border hover:border-text-muted'
+                                            ? 'bg-button-primary/10 border-button-primary'
+                                            : 'bg-bg-primary border-border hover:border-text-muted'
                                             }`}
                                         onClick={() => toggleMonitor(monitor.id)}
                                     >

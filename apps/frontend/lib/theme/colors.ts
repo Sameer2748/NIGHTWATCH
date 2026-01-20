@@ -23,7 +23,7 @@ export const colors = {
         },
     },
     light: {
-        background: '#f9fafb',
+        background: '#f1efd8',
         foreground: '#01114f',
         primary: '#01114f',
         secondary: '#e07155',

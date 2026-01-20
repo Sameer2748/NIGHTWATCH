@@ -68,7 +68,7 @@ export default function PublicStatusPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-white flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--color-bg-primary)] flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
             </div>
         )
@@ -76,7 +76,7 @@ export default function PublicStatusPage() {
 
     if (error || !data) {
         return (
-            <div className="min-h-screen bg-white flex items-center justify-center px-4">
+            <div className="min-h-screen bg-[var(--color-bg-primary)] flex items-center justify-center px-4">
                 <div className="text-center">
                     <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Status Page Not Found</h1>
@@ -90,9 +90,8 @@ export default function PublicStatusPage() {
     const someDown = data.monitors.some(m => m.currentStatus === 'Down')
 
     return (
-        <div className="min-h-screen bg-white">
-            {/* Header */}
-            <div className="bg-white border-b border-gray-200">
+        <div className="min-h-screen bg-[var(--color-bg-primary)]">
+            <div className="bg-[var(--color-bg-primary)] border-b border-gray-200">
                 <div className="max-w-4xl mx-auto px-6 py-8 text-center">
                     <div className="flex justify-center mb-4">
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center ${allUp ? 'bg-green-600' : someDown ? 'bg-red-600' : 'bg-yellow-600'
@@ -109,7 +108,6 @@ export default function PublicStatusPage() {
                 </div>
             </div>
 
-            {/* Services */}
             <div className="max-w-4xl mx-auto px-6 py-12">
                 <div className="bg-white border border-gray-200 rounded-lg overflow-visible shadow-sm">
                     {data.monitors.map((monitor, index) => {
@@ -119,7 +117,6 @@ export default function PublicStatusPage() {
 
                         return (
                             <div key={monitor.id} className={index !== 0 ? 'border-t border-gray-200' : ''}>
-                                {/* Monitor Header */}
                                 <button
                                     onClick={() => toggleMonitor(monitor.id)}
                                     className="w-full px-6 py-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
@@ -138,7 +135,6 @@ export default function PublicStatusPage() {
                                     </div>
                                 </button>
 
-                                {/* Expanded Content */}
                                 {isExpanded && (
                                     <div className="px-6 pb-6 pt-4 bg-gray-50 overflow-visible">
                                         <div className="flex items-center gap-2 mb-3">
@@ -149,7 +145,6 @@ export default function PublicStatusPage() {
                                             </span>
                                         </div>
 
-                                        {/* Uptime Bar */}
                                         <div className="mb-2 relative">
                                             <div className="flex gap-[2px] h-8 rounded overflow-visible">
                                                 {monitor.dailyData?.map((day, i) => {
@@ -172,7 +167,6 @@ export default function PublicStatusPage() {
                                                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = hoverColor}
                                                             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = bgColor}
                                                         >
-                                                            {/* Tooltip */}
                                                             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                                                                 <div className="bg-white border border-gray-200 rounded-lg shadow-xl p-3 whitespace-nowrap">
                                                                     <div className="flex items-center gap-2 mb-1">
@@ -224,7 +218,6 @@ export default function PublicStatusPage() {
                 </div>
             </div>
 
-            {/* Previous Incidents Section */}
             <div className="max-w-4xl mx-auto px-6 py-12">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Previous incidents</h2>
                 <div className="text-center py-12 text-gray-500">
@@ -232,7 +225,6 @@ export default function PublicStatusPage() {
                 </div>
             </div>
 
-            {/* Footer */}
             <div className="max-w-4xl mx-auto px-6 py-8 text-center text-sm text-gray-500 border-t border-gray-200 mt-12">
                 <p>Powered by <span className="font-semibold text-green-600">NIGHTWATCH</span></p>
             </div>

@@ -44,9 +44,9 @@ import {
 import { getMonitorDetails, MonitorDetails, WebsiteTick, acknowledgeIncident, sendTestAlert, toggleMonitorPause } from "@/lib/api/monitors"
 import { tokenManager } from "@/lib/auth/tokenManager"
 
-export default function MonitorDetailPage({ params }: { params: { id: string } }) {
+export default function MonitorDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = React.use(params)
     const router = useRouter()
-    const { id } = params
 
     const [monitor, setMonitor] = React.useState<MonitorDetails | null>(null)
     const [isLoading, setIsLoading] = React.useState(true)
