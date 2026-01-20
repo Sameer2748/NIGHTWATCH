@@ -2,6 +2,7 @@ import { xAckBulk, xReadGroup, initConsumerGroup, xAddAlert } from "@redis-strea
 import got from "got"
 import { client } from "@repo/db/client"
 import type { message } from "@redis-stream/types"
+import { checkNightwatchHealth, alertMasterOnStateChange } from "./healthCheck";
 
 const regionId = process.env.REGION_ID!;
 const workerId = process.env.WORKER_ID! || "worker-1";
@@ -11,12 +12,10 @@ if (!regionId || !workerId) {
 }
 
 async function main() {
-    console.log(`[${workerId}] Worker started for region: ${regionId}`);
 
     try {
         await initConsumerGroup(regionId, `consumer-group-${regionId}`);
     } catch (e) {
-        console.error(`[${workerId}] Initial setup failed:`, e);
         process.exit(1);
     }
 
@@ -48,7 +47,17 @@ async function main() {
             }
 
             if (latestMessages.size > 0) {
-                console.log(`[${workerId}] Processing batch: ${latestMessages.size} unique tasks.`);
+
+                // HEALTH CHECK: Check Nightwatch network health ONCE per batch
+                const isNightwatchHealthy = await checkNightwatchHealth();
+                await alertMasterOnStateChange(workerId, regionId, isNightwatchHealthy);
+
+                if (!isNightwatchHealthy) {
+                    // Nightwatch network is down - skip this entire batch
+                    // Still acknowledge messages to prevent reprocessing
+                    await xAckBulk(regionId, `consumer-group-${regionId}`, allStreamIds);
+                    continue;
+                }
 
                 // Process each website with a STRICT per-task timeout
                 const tasks = Array.from(latestMessages.values()).map(async (msg) => {
@@ -59,9 +68,7 @@ async function main() {
                             45000, // 45 seconds max per website check
                             `Task for ${msg.message.url} timed out overall`
                         );
-                        console.log(`[${workerId}] DONE: ${taskInfo}`);
                     } catch (e: any) {
-                        console.error(`[${workerId}] FAILED: ${taskInfo} - ${e.message}`);
                     }
                 });
 
@@ -72,7 +79,6 @@ async function main() {
             await xAckBulk(regionId, `consumer-group-${regionId}`, allStreamIds);
 
         } catch (error: any) {
-            console.error(`[${workerId}] Main Loop Fatal Error:`, error.message);
             await new Promise(resolve => setTimeout(resolve, 5000));
             // In a cluster, we exit and let the manager restart us
             process.exit(1);
@@ -95,7 +101,6 @@ const processWebsites = async (url: string, websiteId: string) => {
 
     // 1. HTTP CHECK
     try {
-        console.log(`[${workerId}] Performing HTTP check: ${url}`);
 
         // Fetch website config to see if keyword check is needed
         const websiteConfig = await client.website.findUnique({
@@ -136,7 +141,6 @@ const processWebsites = async (url: string, websiteId: string) => {
                     if (!bodyText.includes(websiteConfig.keywordCheck)) {
                         status = "Down";
                         message = `Keyword Check Failed: Expected "${websiteConfig.keywordCheck}"`;
-                        console.log(`[${workerId}] ${message} for ${url}`);
                     }
                 }
             }
@@ -147,21 +151,19 @@ const processWebsites = async (url: string, websiteId: string) => {
         }
 
     } catch (error: any) {
+        // Website is down (we already checked Nightwatch health at batch level)
         status = "Down";
         message = `Network Error: ${error.message}`;
-        console.log(`[${workerId}] HTTP Check failed for ${url}: ${error.message}`);
     }
 
     // 2. DATABASE PERSISTENCE (with strict internal timeout)
     try {
-        console.log(`[${workerId}] Saving result to DB: ${url}`);
         await withTimeout(
             dbWork(websiteId, status, timings, message),
             15000, // 15s for DB
             "Database operation timed out"
         );
     } catch (e: any) {
-        console.error(`[${workerId}] DB Persist Error for ${url}: ${e.message}`);
     }
 }
 
@@ -211,7 +213,6 @@ async function dbWork(websiteId: string, status: "Up" | "Down", timings: any, me
                 url: website.url,
                 message: message || "Unknown Error"
             });
-            console.log(`[${workerId}] Alert triggered for ${website.url} (Incident: ${newIncident.id})`);
         }
     }
 }
