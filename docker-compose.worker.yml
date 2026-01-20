@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: always
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://:supersecretredis@YOUR_HUB_PUBLIC_IP:6379}
+      REGION: ${REGION_ID:-US-EAST-1}
+      WORKER_ID: ${WORKER_NAME:-worker-01}

@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-nightwatch}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-supersecret}
+      POSTGRES_DB: nightwatch
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD:-supersecretredis}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    restart: always
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-nightwatch}:${DB_PASSWORD:-supersecret}@db:5432/nightwatch?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD:-supersecretredis}@redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3001:3000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001/api/v1}
+    restart: always
+    ports:
+      - "3000:3000"
+
+  producer:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    command: ["bun", "run", "../producer/index.ts"]
+    restart: always
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: redis://:${REDIS_PASSWORD:-supersecretredis}@redis:6379
+
+  notifier:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    command: ["bun", "run", "../notifier/index.ts"]
+    restart: always
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: redis://:${REDIS_PASSWORD:-supersecretredis}@redis:6379
+      BREVO_API_KEY: ${BREVO_API_KEY}
+
+volumes:
+  postgres_data:
+  redis_data:
