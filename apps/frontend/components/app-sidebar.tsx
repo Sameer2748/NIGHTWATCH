@@ -60,6 +60,11 @@ const data = {
       url: "#",
       icon: BarChartIcon,
     },
+    {
+      title: "Status Pages",
+      url: "/dashboard/status-pages",
+      icon: ArrowUpCircleIcon,
+    },
   ],
   navSecondary: [
     {
