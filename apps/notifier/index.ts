@@ -8,12 +8,10 @@ import { Twilio } from "twilio";
 const WORKER_ID = `notifier-${Math.random().toString(36).substr(2, 4)}`;
 
 async function main() {
-    console.log(`[${WORKER_ID}] Notifier Service Starting...`);
 
     try {
         await initConsumerGroup('betterstack:alerts', 'notifier-group');
     } catch (e) {
-        console.error("Failed to init consumer group for alerts:", e);
     }
 
     while (true) {
@@ -26,20 +24,19 @@ async function main() {
             }
 
             for (const msg of messages) {
-                console.log(`[${WORKER_ID}] Raw Msg:`, JSON.stringify(msg.message));
                 const { websiteId, incidentId, alertType, url, message } = msg.message;
-                console.log(`[${WORKER_ID}] Received Alert: ${alertType} for ${url} (Incident: ${incidentId}) Reason: ${message}`);
 
                 if (alertType === "WEBSITE_DOWN") {
                     await handleEscalation(websiteId, incidentId, url, message);
                 } else if (alertType === "TEST_ALERT") {
                     await handleTestAlert(websiteId, url);
+                } else if (alertType === "SYSTEM_DOWN") {
+                    await handleSystemDownAlert(url, message);
                 }
 
                 await xAckAlert('notifier-group', [msg.id]);
             }
         } catch (error) {
-            console.error("Error in alert loop:", error);
             await new Promise(resolve => setTimeout(resolve, 5000));
         }
     }
@@ -59,7 +56,6 @@ async function handleEscalation(websiteId: string, incidentId: string | undefine
 
     if (!website) return;
 
-    console.log(`[Escalation] Processing ${website.escalationSteps.length} steps for ${url} ${incidentId ? `(Incident: ${incidentId})` : ''}`);
 
     // 2. Execute steps in order
     for (const step of website.escalationSteps) {
@@ -74,14 +70,12 @@ async function handleEscalation(websiteId: string, incidentId: string | undefine
             });
 
         if (!currentIncident || currentIncident.status === 'RESOLVED' || currentIncident.acknowledgedAt) {
-            console.log(`[Escalation] Alert for ${url} acknowledged or resolved. Stopping cycle.`);
             break;
         }
 
         const targetValue = step.value === 'OWNER' ? website.user.email : step.value;
         if (!targetValue) continue;
 
-        console.log(`[Alert] Sending ${step.type} to ${targetValue} for ${url}`);
 
         try {
             switch (step.type) {
@@ -99,7 +93,6 @@ async function handleEscalation(websiteId: string, incidentId: string | undefine
             // Note: In a production system, we would NOT await the next step here.
             // We would schedule a background job to check for acknowledgement.
             // But to demonstrate the logic for the user, we show the sequential flow.
-            console.log(`[Escalation] Step ${step.order} completed for ${targetValue}`);
 
             // In a real system, we'd wait here for X minutes before the next step
             // For demo purposes, we can add a small sleep or just continue
@@ -107,17 +100,14 @@ async function handleEscalation(websiteId: string, incidentId: string | undefine
 
             // Simulate a "stop if someone picks up" logic for calls (simplified for demo)
             if (step.type === 'CALL') {
-                console.log(`[Alert] Call successful to ${targetValue}. Stopping escalation.`);
                 break;
             }
         } catch (err) {
-            console.error(`[Alert] Failed to send ${step.type} to ${targetValue}:`, err);
         }
     }
 }
 
 async function handleTestAlert(websiteId: string, url: string) {
-    console.log(`[TestAlert] Processing test alert for ${url}`);
 
     const website = await client.website.findUnique({
         where: { id: websiteId },
@@ -125,7 +115,6 @@ async function handleTestAlert(websiteId: string, url: string) {
     });
 
     if (!website || !website.user?.email) {
-        console.error(`[TestAlert] User email not found for website ${websiteId}`);
         return;
     }
 
@@ -146,15 +135,58 @@ async function handleTestAlert(websiteId: string, url: string) {
     await sendCustomEmail(email, subject, htmlContent);
 }
 
+// Master contact for system-level alerts
+const MASTER_CONTACT = {
+    phone: "9518074060",
+    email: "mrao27488@gmail.com"
+};
+
+async function handleSystemDownAlert(systemName: string, message?: string) {
+
+    const subject = `🚨 CRITICAL: ${systemName} Network Down`;
+    const htmlContent = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 2px solid #b91c1b; border-radius: 8px; background: #fff;">
+            <div style="background: #b91c1b; color: white; padding: 20px; border-radius: 6px 6px 0 0; margin: -20px -20px 20px -20px;">
+                <h1 style="margin: 0; font-size: 24px;">🚨 CRITICAL SYSTEM ALERT</h1>
+            </div>
+            
+            <div style="background: #fef2f2; border-left: 4px solid #b91c1b; padding: 15px; margin: 20px 0;">
+                <h2 style="color: #b91c1b; margin-top: 0;">${systemName}</h2>
+                <p style="margin: 10px 0; color: #7f1d1d; white-space: pre-line;">
+                    ${message || "System monitoring service has lost network connectivity"}
+                </p>
+            </div>
+
+            <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+                <h3 style="margin-top: 0; color: #92400e;">Impact:</h3>
+                <ul style="margin: 10px 0; padding-left: 20px; color: #78350f;">
+                    <li>Website monitoring is currently <strong>unavailable</strong></li>
+                    <li>No websites are being marked as "down" during this outage</li>
+                    <li>This prevents false positive alerts</li>
+                    <li>Normal monitoring will resume once connectivity is restored</li>
+                </ul>
+            </div>
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px;">
+                <p style="margin: 5px 0;">This is an automated alert from <strong>Nightwatch Monitoring System</strong>.</p>
+                <p style="margin: 5px 0;">Contact: ${MASTER_CONTACT.phone}</p>
+            </div>
+        </div>
+    `;
+
+    // Send to master email
+    await sendCustomEmail(MASTER_CONTACT.email, subject, htmlContent);
+
+    // TODO: Send SMS to master phone
+}
+
 // Helper to reuse Brevo logic
 async function sendCustomEmail(email: string, subject: string, htmlContent: string) {
     if (!process.env.BREVO_API_KEY) {
-        console.log(`📧 [MOCK EMAIL] To: ${email} | Subject: ${subject}`);
         return;
     }
 
     try {
-        console.log(`📧 Sending email to ${email} via Brevo...`);
 
         const sendSmtpEmail = new Brevo.SendSmtpEmail();
         sendSmtpEmail.subject = subject;
@@ -163,9 +195,7 @@ async function sendCustomEmail(email: string, subject: string, htmlContent: stri
         sendSmtpEmail.to = [{ "email": email }];
 
         const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
-        console.log(`[Email] Sent successfully. Message ID: ${JSON.stringify(data.body)}`);
     } catch (err: any) {
-        console.error(`[Email] Failed to send to ${email}:`, err);
     }
 }
 
@@ -184,12 +214,10 @@ if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
 
 async function sendEmail(email: string, url: string, message?: string) {
     if (!process.env.BREVO_API_KEY) {
-        console.log(`📧 [MOCK EMAIL] To: ${email} | Subject: Alert: ${url} is DOWN! | Reason: ${message || 'Unknown'}`);
         return;
     }
 
     try {
-        console.log(`📧 Sending email to ${email} via Brevo...`);
 
         const sendSmtpEmail = new Brevo.SendSmtpEmail();
         sendSmtpEmail.subject = `🚨 Alert: ${url} is DOWN`;
@@ -214,20 +242,16 @@ async function sendEmail(email: string, url: string, message?: string) {
 
         const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-        console.log(`[Email] Sent successfully. Message ID: ${JSON.stringify(data.body)}`);
     } catch (err: any) {
-        console.error(`[Email] Failed to send to ${email}:`, err);
     }
 }
 
 async function sendSMS(phone: string, url: string, message?: string) {
     if (!twilioClient || !process.env.TWILIO_PHONE_NUMBER) {
-        console.log(`📱 [MOCK SMS] To: ${phone} | Msg: Website ${url} is DOWN! Reason: ${message || 'Unknown'}`);
         return;
     }
 
     try {
-        console.log(`📱 Sending SMS to ${phone} via Twilio...`);
         const messageBody = message ? `Reason: ${message}` : '';
         const smsBody = `🚨 NightWatch Alert: ${url} is DOWN. ${messageBody} Please acknowledge immediately.`;
 
@@ -236,29 +260,23 @@ async function sendSMS(phone: string, url: string, message?: string) {
             from: process.env.TWILIO_PHONE_NUMBER,
             to: phone
         });
-        console.log(`[SMS] Sent successfully. SID: ${textMessage.sid}`);
     } catch (err: any) {
-        console.error(`[SMS] Failed to send to ${phone}:`, err);
     }
 }
 
 async function sendCall(phone: string, url: string) {
     if (!twilioClient || !process.env.TWILIO_PHONE_NUMBER) {
-        console.log(`📞 [MOCK CALL] To: ${phone} | Voice: Automated alert - ${url} is unreachable. (Add TWILIO credentials to enable real Calls)`);
         return;
     }
 
     try {
-        console.log(`📞 Initiating Call to ${phone} via Twilio...`);
         // Uses TwiML Bin or default text-to-speech
         const call = await twilioClient.calls.create({
             twiml: `<Response><Say>Alert from Night Watch. Your monitor for ${url.replace('https://', '')} is currently down. Please check your dashboard.</Say></Response>`,
             to: phone,
             from: process.env.TWILIO_PHONE_NUMBER
         });
-        console.log(`[Call] Initiated successfully. SID: ${call.sid}`);
     } catch (err: any) {
-        console.error(`[Call] Failed to initiate call to ${phone}:`, err);
     }
 }
 
