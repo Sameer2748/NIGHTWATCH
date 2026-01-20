@@ -8,11 +8,9 @@ const REGIONS = [
 
 const processes: Map<string, any> = new Map();
 
-console.log('Starting Multi-Region Worker Cluster with Auto-Restart...\n');
 
 function startWorker(region: any, index: number) {
     const workerId = `${region.name.toLowerCase()}-worker-${index}`;
-    console.log(`[${workerId}] Starting worker...`);
 
     const child = spawn('bun', ['index.ts'], {
         cwd: process.cwd(),
@@ -28,12 +26,10 @@ function startWorker(region: any, index: number) {
 
     child.on('exit', (code, signal) => {
         processes.delete(workerId);
-        console.log(`[${workerId}] Exited with code ${code} and signal ${signal}. Restarting in 5s...`);
         setTimeout(() => startWorker(region, index), 5000);
     });
 
     child.on('error', (err) => {
-        console.error(`[${workerId}] Spawn error:`, err);
     });
 }
 
@@ -44,17 +40,12 @@ REGIONS.forEach(region => {
     }
 });
 
-console.log(`\nStarted ${REGIONS.reduce((acc, r) => acc + r.workers, 0)} workers across ${REGIONS.length} regions`);
-console.log('Press Ctrl+C to stop all workers and the cluster manager\n');
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-    console.log('\n\nShutting down all workers...');
     processes.forEach((child, workerId) => {
-        console.log(`   Stopping ${workerId}...`);
         child.removeAllListeners('exit'); // Prevent restart on manual kill
         child.kill();
     });
-    console.log('All workers stopped');
     process.exit(0);
 });

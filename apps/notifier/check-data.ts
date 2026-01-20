@@ -7,10 +7,8 @@ async function main() {
             website: true
         }
     });
-    console.log("Escalation Steps:", JSON.stringify(steps, null, 2));
 
     const websites = await client.website.findMany();
-    console.log("Websites:", JSON.stringify(websites, null, 2));
 }
 
 main()

@@ -14,7 +14,6 @@ describe("signup", ()=>{
         })
         expect(false, "user created when it shouldn't")
     } catch (error: any) {
-        // console.log(error.response.status);
     }
   })
   it("user created if name and password is present", async()=>{
@@ -35,7 +34,6 @@ describe("signin", ()=>{
         })
         expect(false, "user created when it shouldn't")
     } catch (error: any) {
-        // console.log(error.response.status);
     }
   })
   it("user signed in  if name and password is present", async()=>{

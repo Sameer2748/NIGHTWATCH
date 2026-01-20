@@ -5,7 +5,6 @@ import jwt from "jsonwebtoken"
 export async function signIn(req: Request, res: Response) {
   try {
     const data = authClient.safeParse(req.body);
-    console.log(data);
 
 
     if (!data.success) {
@@ -31,7 +30,6 @@ export async function signIn(req: Request, res: Response) {
     return res.status(201).json({ jwt: token });
 
   } catch (error) {
-    console.error("Error creating user:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 }
@@ -72,7 +70,6 @@ export async function signUp(req: Request, res: Response) {
 
     return res.status(201).json({ jwt: token, id: newUser.id });
   } catch (error) {
-    console.error("Error creating user:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 }
@@ -105,7 +102,6 @@ export async function getUserDetails(req: Request, res: Response) {
     res.status(200).json(user);
     return;
   } catch (error) {
-    console.error("Error fetching user details:", error);
     res.status(500).json({ message: "Internal server error" });
     return;
   }

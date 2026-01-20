@@ -35,13 +35,11 @@ export async function postwebsiteDetails(req: Request, res: Response): Promise<v
     // We do this in the background so we can respond to the user quickly,
     // but the task is small enough that it won't hang the backend.
     performInitialCheck(website.url, website.id).catch(err => {
-      console.error(`[InitialCheck] Failed for ${website.url}:`, err.message);
     });
 
     res.status(201).json(website);
     return;
   } catch (error) {
-    console.error("Error creating website:", error);
     res.status(500).json({ message: "Internal server error" });
     return;
   }
@@ -52,7 +50,6 @@ export async function postwebsiteDetails(req: Request, res: Response): Promise<v
  * This ensures the user sees a "First Tick" immediately.
  */
 async function performInitialCheck(url: string, websiteId: string) {
-  console.log(`[InitialCheck] Checking new website: ${url}`);
 
   let status: "Up" | "Down" = "Up";
   let timings: any = null;
@@ -68,7 +65,6 @@ async function performInitialCheck(url: string, websiteId: string) {
     status = "Up";
   } catch (error: any) {
     status = "Down";
-    console.log(`[InitialCheck] ${url} is Down: ${error.message}`);
   }
 
   try {
@@ -88,9 +84,7 @@ async function performInitialCheck(url: string, websiteId: string) {
     }
 
     await client.websiteTick.create({ data: tickData });
-    console.log(`[InitialCheck] Recorded first tick for ${url} (${status})`);
   } catch (dbError: any) {
-    console.error(`[InitialCheck] DB Error saving results for ${url}:`, dbError.message);
   }
 }
 
@@ -115,7 +109,6 @@ export async function getAllWebsites(req: Request, res: Response): Promise<void>
 
     res.status(200).json(websites);
   } catch (error) {
-    console.error("Error fetching websites:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 }
@@ -159,7 +152,6 @@ export async function getwebsiteDetails(req: Request, res: Response): Promise<vo
     res.status(200).json(website);
     return;
   } catch (error) {
-    console.error("Error getting website details:", error);
     res.status(500).json({ message: "Internal server error" });
     return;
   }
@@ -192,7 +184,6 @@ export async function acknowledgeIncident(req: Request, res: Response): Promise<
 
     res.status(200).json(updatedIncident);
   } catch (error) {
-    console.error("Error acknowledging incident:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 }
@@ -222,7 +213,6 @@ export async function sendTestAlert(req: Request, res: Response): Promise<void> 
 
     res.status(200).json({ message: "Test alert triggered" });
   } catch (error) {
-    console.error("Error triggering test alert:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 }
@@ -267,7 +257,6 @@ export async function deleteWebsite(req: Request, res: Response): Promise<void> 
 
     res.status(200).json({ message: "Monitor deleted successfully" });
   } catch (error) {
-    console.error("Error deleting website:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 }
@@ -298,7 +287,6 @@ export async function togglePause(req: Request, res: Response): Promise<void> {
 
     res.status(200).json(updatedWebsite);
   } catch (error) {
-    console.error("Error toggling pause:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 }
