@@ -10,7 +10,6 @@ export async function createStatusPage(req: Request, res: Response): Promise<voi
             return;
         }
 
-        // Check unique slug
         const existing = await client.statusPage.findUnique({ where: { slug } });
         if (existing) {
             res.status(409).json({ message: "Slug already exists" });
@@ -111,13 +110,11 @@ export async function getPublicStatusPage(req: Request, res: Response): Promise<
             return;
         }
 
-        // Calculate uptime for each monitor (last 90 days)
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
         const monitorsWithUptime = await Promise.all(
             page.monitors.map(async (monitor) => {
-                // Get all ticks for the last 90 days
                 const ticks = await client.websiteTick.findMany({
                     where: {
                         website_id: monitor.id,
@@ -130,7 +127,6 @@ export async function getPublicStatusPage(req: Request, res: Response): Promise<
                     orderBy: { createdAt: 'asc' }
                 });
 
-                // Calculate daily uptime for last 90 days
                 const dailyData = [];
                 for (let i = 89; i >= 0; i--) {
                     const date = new Date();
@@ -140,14 +136,12 @@ export async function getPublicStatusPage(req: Request, res: Response): Promise<
                     const nextDay = new Date(date);
                     nextDay.setDate(nextDay.getDate() + 1);
 
-                    // Get ticks for this specific day
                     const dayTicks = ticks.filter(t => {
                         const tickDate = new Date(t.createdAt);
                         return tickDate >= date && tickDate < nextDay;
                     });
 
                     if (dayTicks.length === 0) {
-                        // No data for this day = assume operational
                         dailyData.push({
                             date: date.toISOString(),
                             status: 'Up',
@@ -161,12 +155,11 @@ export async function getPublicStatusPage(req: Request, res: Response): Promise<
                             date: date.toISOString(),
                             status: uptimePercentage >= 99 ? 'Up' : uptimePercentage >= 50 ? 'Degraded' : 'Down',
                             uptimePercentage: parseFloat(uptimePercentage.toFixed(2)),
-                            downMinutes: Math.round(((dayTicks.length - upCount) * 3) / 60) // Assuming 3min check interval
+                            downMinutes: Math.round(((dayTicks.length - upCount) * 3) / 60)
                         });
                     }
                 }
 
-                // Overall uptime percentage
                 const totalTicks = ticks.length;
                 const upTicks = ticks.filter(t => t.status === 'Up').length;
                 const overallUptimePercentage = totalTicks > 0 ? (upTicks / totalTicks) * 100 : 100;

@@ -31,9 +31,6 @@ export async function postwebsiteDetails(req: Request, res: Response): Promise<v
       }
     });
 
-    // 2. Perform an immediate initial check
-    // We do this in the background so we can respond to the user quickly,
-    // but the task is small enough that it won't hang the backend.
     performInitialCheck(website.url, website.id).catch(err => {
     });
 
@@ -70,7 +67,7 @@ async function performInitialCheck(url: string, websiteId: string) {
   try {
     const tickData: any = {
       status,
-      region_id: 'india-region-id', // Use a default region for the initial backend check
+      region_id: 'india-region-id',
       website_id: websiteId,
       response_time_ms: timings ? Math.round(timings.phases.total || 0) : 0,
     };
@@ -234,7 +231,7 @@ export async function deleteWebsite(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Delete related data manually (simulating cascade)
+    // Delete related data
     // 1. Ticks
     await client.websiteTick.deleteMany({
       where: { website_id: websiteId }
@@ -264,7 +261,7 @@ export async function deleteWebsite(req: Request, res: Response): Promise<void> 
 export async function togglePause(req: Request, res: Response): Promise<void> {
   try {
     const { websiteId } = req.params;
-    const { paused } = req.body; // Expect explicit boolean or just toggle? Explicit is safer.
+    const { paused } = req.body;
 
     const website = await client.website.findUnique({
       where: {
