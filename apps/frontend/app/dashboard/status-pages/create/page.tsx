@@ -60,8 +60,16 @@ export default function CreateStatusPage() {
             toast.success("Status page created successfully")
             router.push("/dashboard/status-pages")
         } catch (error: any) {
-            console.error(error)
-            toast.error(error.response?.data?.message || "Failed to create status page")
+            console.error("Create status page error:", error)
+
+            // Check for 409 Conflict or the specific "Slug already exists" message
+            if (error.response?.status === 409 ||
+                error.response?.data?.message?.toLowerCase().includes("slug already exists")) {
+                toast.error("This URL (slug) is already taken. Please choose a unique name or slug.")
+            } else {
+                const errorMessage = error.response?.data?.message || error.message || "Failed to create status page"
+                toast.error(errorMessage)
+            }
         } finally {
             setIsLoading(false)
         }
