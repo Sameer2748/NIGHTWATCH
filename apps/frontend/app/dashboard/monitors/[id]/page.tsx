@@ -649,22 +649,76 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {[
-                                    { period: "Today", avail: "100.0000%", down: "none", inc: "0", long: "none", avg: "none" },
-                                    { period: "Last 7 days", avail: "100.0000%", down: "none", inc: "0", long: "none", avg: "none" },
-                                    { period: "Last 30 days", avail: "100.0000%", down: "none", inc: "0", long: "none", avg: "none" },
-                                    { period: "Last 365 days", avail: "100.0000%", down: "none", inc: "0", long: "none", avg: "none" },
-                                    { period: "All time (Last 267 days)", avail: "100.0000%", down: "none", inc: "0", long: "none", avg: "none" },
-                                ].map((row, i) => (
-                                    <TableRow key={i} className="hover:bg-white/5 border-border-color">
-                                        <TableCell className="font-medium text-text-primary">{row.period}</TableCell>
-                                        <TableCell className="text-text-primary font-bold">{row.avail}</TableCell>
-                                        <TableCell className="text-text-muted">{row.down}</TableCell>
-                                        <TableCell className="text-text-primary">{row.inc}</TableCell>
-                                        <TableCell className="text-text-muted">{row.long}</TableCell>
-                                        <TableCell className="text-text-muted text-right">{row.avg}</TableCell>
-                                    </TableRow>
-                                ))}
+                                {(() => {
+                                    const calculateRowStats = (days: number | null) => {
+                                        const startTime = days ? subDays(now, days) : new Date(monitor.timeAdded);
+                                        const actualStartTime = startTime > new Date(monitor.timeAdded) ? startTime : new Date(monitor.timeAdded);
+
+                                        const periodIncidents = monitor.incidents?.filter(inc => {
+                                            const incStart = new Date(inc.startedAt);
+                                            const incEnd = inc.resolvedAt ? new Date(inc.resolvedAt) : now;
+                                            return incEnd > actualStartTime;
+                                        }) || [];
+
+                                        const totalDowntimeSeconds = periodIncidents.reduce((acc, inc) => {
+                                            const start = new Date(inc.startedAt);
+                                            const end = inc.resolvedAt ? new Date(inc.resolvedAt) : now;
+                                            const effectiveStart = start > actualStartTime ? start : actualStartTime;
+                                            return acc + differenceInSeconds(end, effectiveStart);
+                                        }, 0);
+
+                                        const totalPeriodSeconds = Math.max(1, differenceInSeconds(now, actualStartTime));
+                                        const uptimePercentage = Math.max(0, Math.min(100, ((totalPeriodSeconds - totalDowntimeSeconds) / totalPeriodSeconds) * 100));
+
+                                        const formatSecs = (s: number) => {
+                                            if (s <= 0) return "none";
+                                            if (s < 60) return `${Math.floor(s)}s`;
+                                            const m = Math.floor(s / 60);
+                                            if (m < 60) return `${m}m ${Math.floor(s % 60)}s`;
+                                            const h = Math.floor(m / 60);
+                                            const mins = m % 60;
+                                            return `${h}h ${mins}m`;
+                                        };
+
+                                        const maxIncident = periodIncidents.length > 0
+                                            ? Math.max(...periodIncidents.map(inc => {
+                                                const s = new Date(inc.startedAt);
+                                                const e = inc.resolvedAt ? new Date(inc.resolvedAt) : now;
+                                                const effectiveStart = s > actualStartTime ? s : actualStartTime;
+                                                return differenceInSeconds(e, effectiveStart);
+                                            }))
+                                            : 0;
+
+                                        const avgIncident = periodIncidents.length > 0 ? totalDowntimeSeconds / periodIncidents.length : 0;
+
+                                        return {
+                                            avail: `${uptimePercentage.toFixed(4)}%`,
+                                            down: totalDowntimeSeconds > 0 ? formatSecs(totalDowntimeSeconds) : "none",
+                                            inc: periodIncidents.length.toString(),
+                                            long: maxIncident > 0 ? formatSecs(maxIncident) : "none",
+                                            avg: avgIncident > 0 ? formatSecs(avgIncident) : "none"
+                                        };
+                                    };
+
+                                    const daysSinceAdded = Math.max(1, Math.ceil(differenceInSeconds(now, new Date(monitor.timeAdded)) / 86400));
+
+                                    return [
+                                        { period: "Today", ...calculateRowStats(1) },
+                                        { period: "Last 7 days", ...calculateRowStats(7) },
+                                        { period: "Last 30 days", ...calculateRowStats(30) },
+                                        { period: "Last 365 days", ...calculateRowStats(365) },
+                                        { period: `All time (Last ${daysSinceAdded} days)`, ...calculateRowStats(null) },
+                                    ].map((row, i) => (
+                                        <TableRow key={i} className="hover:bg-white/5 border-border-color">
+                                            <TableCell className="font-medium text-text-primary whitespace-nowrap">{row.period}</TableCell>
+                                            <TableCell className="text-text-primary font-bold">{row.avail}</TableCell>
+                                            <TableCell className="text-text-muted">{row.down}</TableCell>
+                                            <TableCell className="text-text-primary">{row.inc}</TableCell>
+                                            <TableCell className="text-text-muted">{row.long}</TableCell>
+                                            <TableCell className="text-text-muted text-right">{row.avg}</TableCell>
+                                        </TableRow>
+                                    ));
+                                })()}
                             </TableBody>
                         </Table>
                     </div>
@@ -672,10 +726,12 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
 
                 {/* Footer Help */}
                 <div className="flex justify-center pt-8">
-                    <div className="flex items-center gap-2 px-6 py-3 bg-[#1e293b]/50 rounded-full border border-border-color text-sm text-text-muted">
+                    <div className="flex items-center gap-2 px-6 py-3 bg-card-bg border border-border-color rounded-full text-sm shadow-sm group hover:border-button-primary/30 transition-all">
                         <AlertCircle className="w-4 h-4 text-button-primary" />
-                        <span>Need help? Let us know at</span>
-                        <a href="mailto:hello@betterstack.com" className="text-button-primary hover:underline">hello@betterstack.com</a>
+                        <span className="text-text-secondary">Need help? Let us know at</span>
+                        <a href="mailto:mrao27488@gmail.com" className="text-button-primary font-semibold hover:underline decoration-2 underline-offset-4">
+                            mrao27488@gmail.com
+                        </a>
                     </div>
                 </div>
             </div>
