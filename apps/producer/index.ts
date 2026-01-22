@@ -46,6 +46,7 @@ async function main() {
         ]);
 
     } catch (error: any) {
+        console.error("Producer Error:", error);
     } finally {
         isMainRunning = false;
     }

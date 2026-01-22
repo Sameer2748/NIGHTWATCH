@@ -133,7 +133,7 @@ export default function CreateMonitorPage() {
                                     placeholder="https://example.com"
                                     value={url}
                                     onChange={(e) => setUrl(e.target.value)}
-                                    className="bg-bg-primary/50 border-border h-11 focus:ring-button-primary"
+                                    className="bg-transparent border-border h-11 focus:ring-button-primary"
                                 />
                             </div>
 
@@ -147,7 +147,7 @@ export default function CreateMonitorPage() {
                                     placeholder="e.g. Welcome"
                                     value={keyword}
                                     onChange={(e) => setKeyword(e.target.value)}
-                                    className="bg-bg-primary/50 border-border h-11 focus:ring-button-primary"
+                                    className="bg-transparent border-border h-11 focus:ring-button-primary"
                                 />
                             </div>
                         </CardContent>
