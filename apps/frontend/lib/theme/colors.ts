@@ -13,7 +13,7 @@ export const colors = {
             muted: '#6b6b6b',
             common: '#e07155',
         },
-        border: '#2a2b35',
+        border: '#4a4b55',
         card: '#16171f',
         hover: '#1f2028',
         button: {

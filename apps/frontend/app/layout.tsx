@@ -3,6 +3,7 @@ import { Work_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme";
 import { ReduxProvider } from "@/store/provider";
+import { Toaster } from "sonner";
 
 const workSans = Work_Sans({
   subsets: ["latin"],
@@ -11,8 +12,10 @@ const workSans = Work_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "NIGHTWATCH - Uptime Monitor",
-  description: "Monitor your websites uptime and performance",
+  title: "NIGHTWATCH | Premium Uptime Monitoring",
+  description: "Advanced open-source uptime monitoring and status pages. Keep your services under control 24/7.",
+  viewport: "width=device-width, initial-scale=1",
+  themeColor: "#0a0b0f",
 };
 
 export default function RootLayout({
@@ -26,6 +29,7 @@ export default function RootLayout({
         <ReduxProvider>
           <ThemeProvider>
             {children}
+            <Toaster position="top-right" richColors closeButton />
           </ThemeProvider>
         </ReduxProvider>
       </body>
