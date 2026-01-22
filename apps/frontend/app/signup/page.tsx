@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast, Toaster } from 'sonner';
 import { authAPI } from '@/lib/api/auth';
 import { tokenManager } from '@/lib/auth/tokenManager';
@@ -15,6 +15,15 @@ export default function SignUpPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const searchParams = useSearchParams();
+
+    // Pre-fill email from URL parameter
+    useEffect(() => {
+        const emailParam = searchParams.get('email');
+        if (emailParam) {
+            setName(emailParam);
+        }
+    }, [searchParams]);
 
     const handleContinue = () => {
         if (!name.trim()) {

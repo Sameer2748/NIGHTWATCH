@@ -20,6 +20,7 @@ import {
   SunIcon,
   UsersIcon,
 } from "lucide-react"
+import { Logo } from "@/components/Logo"
 
 import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
@@ -118,9 +119,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
               <a href="/">
-                <svg className="w-6 h-6 shrink-0" viewBox="0 0 256 256" fill="none">
-                  <path d="M 128 0 C 198.692 0 256 57.308 256 128 C 256 198.692 198.692 256 128 256 C 57.308 256 0 198.692 0 128 C 0 57.308 57.308 0 128 0 Z M 128 32 C 74.98 32 32 74.98 32 128 C 32 181.019 74.98 224 128 224 C 181.019 224 224 181.019 224 128 C 224 74.98 181.019 32 128 32 Z M 128 112 C 136.837 112 144 119.163 144 128 C 144 136.837 136.837 144 128 144 C 119.163 144 112 136.837 112 128 C 112 119.163 119.163 112 128 112 Z" fill="currentColor" />
-                </svg>
+                <Logo className="w-5 h-5 shrink-0" />
                 <span className="text-base font-bold tracking-tight">NIGHTWATCH</span>
               </a>
             </SidebarMenuButton>
@@ -135,7 +134,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={() => {
-                const audio = new Audio('/audio/anime-ahh.mp3');
+                const audio = new Audio('/audio/infinity-castle-opening.mp3');
                 audio.play().catch(err => console.log('Audio play failed:', err));
                 toggleTheme();
               }}
