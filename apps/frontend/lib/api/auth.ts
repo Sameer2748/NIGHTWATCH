@@ -47,5 +47,10 @@ export const authAPI = {
             }
         });
         return response.data;
+    },
+
+    googleSignIn: async (idToken: string): Promise<SignInResponse> => {
+        const response = await apiClient.post<SignInResponse>('/user/google', { idToken });
+        return response.data;
     }
 };

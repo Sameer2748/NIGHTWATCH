@@ -1,7 +1,74 @@
 import { client } from "@repo/db/client"
 import type { Request, Response } from "express";
 import { authClient } from "../types";
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+export async function googleSignIn(req: Request, res: Response) {
+  const { idToken } = req.body;
+  if (!idToken) {
+    res.status(400).json({ message: "ID Token is required" });
+    return;
+  }
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      res.status(400).json({ message: "Invalid token" });
+      return;
+    }
+
+    const { sub: googleId, email, name } = payload;
+    const userEmail = email as string;
+    const userGoogleId = googleId as string;
+
+    // Find or create user
+    let user = await client.user.findUnique({
+      where: { googleId: userGoogleId }
+    });
+
+    if (!user) {
+      // Check if user exists with same email but no googleId
+      user = await client.user.findUnique({
+        where: { email: userEmail }
+      });
+
+      if (user) {
+        // Link google account
+        user = await client.user.update({
+          where: { id: user.id },
+          data: { googleId: userGoogleId }
+        });
+      } else {
+        // Create new user
+        user = await client.user.create({
+          data: {
+            name: name || userEmail.split('@')[0],
+            email: userEmail,
+            googleId: userGoogleId,
+            password: null,
+          }
+        });
+      }
+    }
+
+    const token = jwt.sign({
+      sub: user.id
+    }, process.env.JWT_SECRET!);
+
+    return res.status(200).json({ jwt: token });
+
+  } catch (error) {
+    console.error("Google sign-in error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
 export async function signIn(req: Request, res: Response) {
   try {
     const data = authClient.safeParse(req.body);

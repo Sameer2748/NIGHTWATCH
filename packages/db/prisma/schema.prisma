@@ -12,7 +12,8 @@ model User {
   name        String     @unique
   email       String?    @unique
   phoneNumber String?
-  password    String
+  password    String?
+  googleId    String?    @unique
   websites    Website[]
   statusPages StatusPage[]
 }

@@ -41,7 +41,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { getMonitorDetails, MonitorDetails, WebsiteTick, acknowledgeIncident, sendTestAlert, toggleMonitorPause } from "@/lib/api/monitors"
+import { API_BASE_URL, getMonitorDetails, MonitorDetails, WebsiteTick, acknowledgeIncident, sendTestAlert, toggleMonitorPause } from "@/lib/api/monitors"
 import { tokenManager } from "@/lib/auth/tokenManager"
 
 export default function MonitorDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -123,20 +123,86 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
     }
 
 
+    // Initial fetch
     React.useEffect(() => {
         if (id) {
             fetchDetails()
         }
     }, [id, selectedRegion])
 
-    // Auto-refresh every 30 seconds for live updates
+    // Real-time updates via SSE
     React.useEffect(() => {
         if (!id) return;
 
+        // Ensure we handle URL correctly (strip trailing slash if present)
+        const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+        const API_STREAM_URL = `${baseUrl}/website/${id}/stream`;
+
+        console.log("[SSE] Connecting to:", API_STREAM_URL);
+        const eventSource = new EventSource(API_STREAM_URL);
+
+        eventSource.onmessage = (event) => {
+            try {
+                const update = JSON.parse(event.data);
+                console.log("[SSE] Update Received:", update);
+
+                setMonitor(prev => {
+                    if (!prev) return prev;
+
+                    if (update.type === 'TICK') {
+                        const newTick = update.data;
+                        const alreadyExists = prev.ticks?.some(t => t.id === newTick.id);
+                        if (alreadyExists) return prev;
+
+                        const updatedTicks = [newTick, ...(prev.ticks || [])].slice(0, 1000);
+                        return { ...prev, ticks: updatedTicks };
+                    }
+
+                    if (update.type === 'INCIDENT_CREATED') {
+                        const newInc = update.data;
+                        const alreadyExists = prev.incidents?.some(i => i.id === newInc.id);
+                        if (alreadyExists) return prev;
+
+                        toast.error(`Website Down! New incident in ${newInc.region_id}`);
+                        return {
+                            ...prev,
+                            incidents: [newInc, ...(prev.incidents || [])]
+                        };
+                    }
+
+                    if (update.type === 'INCIDENT_RESOLVED') {
+                        const resolvedInc = update.data;
+                        toast.success(`Incident Resolved! Website is back up.`);
+                        return {
+                            ...prev,
+                            incidents: prev.incidents?.map(i => i.id === resolvedInc.id ? resolvedInc : i)
+                        };
+                    }
+
+                    return prev;
+                });
+            } catch (err) {
+                console.error("[SSE] Failed to parse message:", err);
+            }
+        };
+
+        eventSource.onerror = (err) => {
+            console.error("[SSE] Connection Error:", err);
+            // eventSource will try to reconnect automatically by default
+        };
+
+        return () => {
+            console.log("[SSE] Closing connection");
+            eventSource.close();
+        };
+    }, [id]);
+
+    // Fallback refresh every 60 seconds just in case SSE fails or for status pages sync
+    React.useEffect(() => {
+        if (!id) return;
         const interval = setInterval(() => {
             fetchDetails(true)
-        }, 5000)
-
+        }, 60000)
         return () => clearInterval(interval)
     }, [id, selectedRegion])
 
@@ -304,10 +370,10 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
             const data = payload[0].payload
             const total = payload.reduce((acc: number, entry: any) => acc + (entry.value || 0), 0)
             return (
-                <div className="bg-[#1e293b]/95 backdrop-blur-md border border-white/10 p-4 rounded-xl shadow-2xl min-w-[220px]">
-                    <div className="mb-3 border-b border-white/10 pb-2">
-                        <p className="text-white font-black text-lg leading-none mb-1">{data.timeStr}</p>
-                        <p className="text-slate-400 text-[10px] font-medium uppercase tracking-wider">{data.fullDate}</p>
+                <div className="bg-card-bg/95 backdrop-blur-md border border-border p-4 rounded-xl shadow-2xl min-w-[220px]">
+                    <div className="mb-3 border-b border-border pb-2">
+                        <p className="text-text-primary font-black text-lg leading-none mb-1">{data.timeStr}</p>
+                        <p className="text-text-secondary text-[10px] font-medium uppercase tracking-wider">{data.fullDate}</p>
                         {data.isAggregated && (
                             <Badge variant="outline" className="mt-2 text-[9px] h-4 bg-emerald-500/5 text-emerald-400 border-emerald-500/20">
                                 AVG OF {data.tickCount} CHECKS
@@ -319,15 +385,15 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
                             <div key={index} className="flex items-center justify-between gap-4">
                                 <div className="flex items-center gap-2">
                                     <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.stroke }}></div>
-                                    <span className="text-slate-400 text-[11px] capitalize">
+                                    <span className="text-text-secondary text-[11px] capitalize">
                                         {entry.name.replace(/([A-Z])/g, ' $1')}
                                     </span>
                                 </div>
-                                <span className="text-white text-[11px] font-mono">{entry.value}ms</span>
+                                <span className="text-text-primary text-[11px] font-mono">{entry.value}ms</span>
                             </div>
                         ))}
-                        <div className="pt-2 mt-1 border-t border-white/10 flex items-center justify-between gap-4">
-                            <span className="text-white text-xs font-bold uppercase tracking-tight">
+                        <div className="pt-2 mt-1 border-t border-border flex items-center justify-between gap-4">
+                            <span className="text-text-primary text-xs font-bold uppercase tracking-tight">
                                 {data.isAggregated ? 'AVG RESPONSE' : 'RESPONSE TIME'}
                             </span>
                             <span className="text-emerald-400 text-xs font-mono font-bold">{total}ms</span>
@@ -477,7 +543,7 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
                                 <select
                                     value={selectedRegion}
                                     onChange={(e) => setSelectedRegion(e.target.value)}
-                                    className="flex items-center gap-2 px-3 py-1 bg-bg-primary rounded-md border border-border-color cursor-pointer hover:border-button-primary transition-colors text-sm font-medium appearance-none pr-8"
+                                    className="flex items-center gap-2 px-3 py-1 bg-transparent rounded-md border border-border cursor-pointer hover:border-button-primary transition-colors text-sm font-medium appearance-none pr-8"
                                 >
                                     {regions.map((region) => (
                                         <option key={region.id} value={region.id}>
@@ -488,7 +554,7 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
                                 <ChevronDown className="w-3 h-3 text-text-muted absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                             </div>
                         </div>
-                        <div className="flex bg-bg-primary p-1 rounded-lg border border-border-color">
+                        <div className="flex bg-bg-primary p-1 rounded-lg border border-border">
                             {['Day', 'Week', 'Month'].map((range) => (
                                 <button
                                     key={range}
@@ -505,15 +571,51 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
                     </CardHeader>
                     <CardContent className="p-6 max-w-full relative">
                         {/* Chart Container - Relative + Absolute to strictly contain Recharts */}
-                        <div className="h-[320px] w-full relative overflow-hidden rounded-lg">
-                            <div className="absolute inset-0 w-full h-full overflow-x-auto custom-scrollbar pb-2">
+                        <div className="h-[320px] w-full relative overflow-hidden rounded-lg flex border border-border/10">
+                            {/* Fixed Y-Axis Left Column */}
+                            <div className="w-[60px] h-full shrink-0 relative bg-card-bg z-10 border-r border-border/50">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                                        <XAxis
+                                            dataKey="timestamp"
+                                            height={30}
+                                            tick={false}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <YAxis
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
+                                            dx={-5}
+                                            width={60}
+                                            tickFormatter={(value) => {
+                                                if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
+                                                return `${value}ms`;
+                                            }}
+                                            domain={[0, (dataMax: number) => {
+                                                const safetyBuffer = dataMax > 0 ? dataMax * 1.15 : 100;
+                                                return Math.ceil(safetyBuffer / 10) * 10;
+                                            }]}
+                                        />
+                                        {/* Invisible areas to force same scale */}
+                                        <Area stackId="1" type="monotone" dataKey="nameLookup" stroke="none" fill="none" />
+                                        <Area stackId="1" type="monotone" dataKey="connection" stroke="none" fill="none" />
+                                        <Area stackId="1" type="monotone" dataKey="tls" stroke="none" fill="none" />
+                                        <Area stackId="1" type="monotone" dataKey="dataTransfer" stroke="none" fill="none" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            {/* Scrollable Chart Body */}
+                            <div className="flex-1 h-full overflow-x-auto custom-scrollbar relative bg-card-bg">
                                 <div style={{
                                     width: timeRange === 'day' ? `${Math.max(100, chartData.length * 0.8)}%` : '100%',
                                     height: '100%',
                                     minHeight: '300px'
                                 }}>
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
                                             <defs>
                                                 <linearGradient id="colorLookup" x1="0" y1="0" x2="0" y2="1">
                                                     <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
@@ -536,6 +638,7 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
                                             <XAxis
                                                 dataKey="timestamp"
                                                 type="number"
+                                                height={30}
                                                 domain={['auto', 'auto']}
                                                 axisLine={false}
                                                 tickLine={false}
@@ -550,12 +653,11 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
                                                 minTickGap={timeRange === 'day' ? 20 : 50}
                                             />
                                             <YAxis
-                                                axisLine={false}
-                                                tickLine={false}
-                                                tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
-                                                unit="ms"
-                                                dx={-10}
-                                                domain={[0, (dataMax: number) => Math.max(100, Math.ceil(dataMax * 1.2))]}
+                                                hide
+                                                domain={[0, (dataMax: number) => {
+                                                    const safetyBuffer = dataMax > 0 ? dataMax * 1.15 : 100;
+                                                    return Math.ceil(safetyBuffer / 10) * 10;
+                                                }]}
                                             />
                                             <Tooltip
                                                 content={<CustomTooltip />}
@@ -709,7 +811,7 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
                                         { period: "Last 365 days", ...calculateRowStats(365) },
                                         { period: `All time (Last ${daysSinceAdded} days)`, ...calculateRowStats(null) },
                                     ].map((row, i) => (
-                                        <TableRow key={i} className="hover:bg-white/5 border-border-color">
+                                        <TableRow key={i} className="hover:bg-hover-bg/30 border-border-color">
                                             <TableCell className="font-medium text-text-primary whitespace-nowrap">{row.period}</TableCell>
                                             <TableCell className="text-text-primary font-bold">{row.avail}</TableCell>
                                             <TableCell className="text-text-muted">{row.down}</TableCell>
@@ -726,7 +828,7 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
 
                 {/* Footer Help */}
                 <div className="flex justify-center pt-8">
-                    <div className="flex items-center gap-2 px-6 py-3 bg-card-bg border border-border-color rounded-full text-sm shadow-sm group hover:border-button-primary/30 transition-all">
+                    <div className="flex items-center gap-2 px-6 py-3 bg-card-bg border border-border rounded-full text-sm shadow-sm group hover:border-button-primary/30 transition-all">
                         <AlertCircle className="w-4 h-4 text-button-primary" />
                         <span className="text-text-secondary">Need help? Let us know at</span>
                         <a href="mailto:mrao27488@gmail.com" className="text-button-primary font-semibold hover:underline decoration-2 underline-offset-4">

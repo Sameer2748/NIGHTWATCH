@@ -1,14 +1,26 @@
 import type { Metadata } from "next";
-import { Work_Sans } from "next/font/google";
+import { Instrument_Serif, Roboto, Silkscreen } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme";
 import { ReduxProvider } from "@/store/provider";
 import { Toaster } from "sonner";
 
-const workSans = Work_Sans({
+const instrument = Instrument_Serif({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-work-sans",
+  weight: ["400"],
+  variable: "--font-instrument",
+});
+
+const roboto = Roboto({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "700"],
+  variable: "--font-roboto",
+});
+
+const silkscreen = Silkscreen({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-logo",
 });
 
 export const metadata: Metadata = {
@@ -25,7 +37,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={workSans.variable}>
+      <body className={`${instrument.variable} ${roboto.variable} ${silkscreen.variable}`}>
         <ReduxProvider>
           <ThemeProvider>
             {children}

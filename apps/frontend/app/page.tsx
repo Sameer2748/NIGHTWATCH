@@ -412,13 +412,11 @@ export default function Home() {
                 <p className="text-sm text-text-secondary mb-4 leading-relaxed text-left group-hover:text-text-primary transition-colors">
                   "Compared it to Datadog and BetterStack. For a personal project or a fast-moving startup, NIGHTWATCH is the clear winner for cost and ease of use. No contest."
                 </p>
-                <div className="flex justify-end">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-cyan-600 rounded-full flex items-center justify-center text-[9px] font-bold text-white uppercase">DK</div>
-                    <div className="text-left">
-                      <p className="text-[10px] font-semibold text-text-primary">David Kim</p>
-                      <p className="text-[8px] text-text-muted">@dkim_dev</p>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-cyan-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase">DK</div>
+                  <div className="flex-1 text-left">
+                    <p className="text-[11px] font-semibold text-text-primary">David Kim</p>
+                    <p className="text-[9px] text-text-muted">@dkim_dev</p>
                   </div>
                 </div>
               </div>

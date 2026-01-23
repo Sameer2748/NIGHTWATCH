@@ -1,4 +1,5 @@
-import { xAckBulk, xReadGroup, initConsumerGroup, xAddAlert } from "@redis-stream/index";
+import "dotenv/config";
+import { xAckBulk, xReadGroup, initConsumerGroup, xAddAlert, publish } from "@redis-stream/index";
 import got from "got"
 import { client } from "@repo/db/client"
 import type { message } from "@redis-stream/types"
@@ -167,7 +168,10 @@ async function dbWork(websiteId: string, status: "Up" | "Down", timings: any, me
         tickData.download_time_ms = Math.round(timings.phases.download || 0);
     }
 
-    await client.websiteTick.create({ data: tickData });
+    const tick = await client.websiteTick.create({ data: tickData });
+
+    // Real-time broadcast for tick
+    await publish(`monitor:${websiteId}:updates`, { type: 'TICK', data: tick });
 
     const ongoingIncident = await client.incident.findFirst({
         where: { website_id: websiteId, region_id: regionId, status: "ONGOING" }
@@ -175,14 +179,16 @@ async function dbWork(websiteId: string, status: "Up" | "Down", timings: any, me
 
     if (status === "Up" && ongoingIncident) {
         const duration = Math.floor((Date.now() - new Date(ongoingIncident.startedAt).getTime()) / 1000);
-        await client.incident.update({
+        const resolved = await client.incident.update({
             where: { id: ongoingIncident.id },
             data: { status: "RESOLVED", resolvedAt: new Date(), duration }
         });
+        await publish(`monitor:${websiteId}:updates`, { type: 'INCIDENT_RESOLVED', data: resolved });
     } else if (status === "Down" && !ongoingIncident) {
         const newIncident = await client.incident.create({
             data: { website_id: websiteId, region_id: regionId, status: "ONGOING" }
         });
+        await publish(`monitor:${websiteId}:updates`, { type: 'INCIDENT_CREATED', data: newIncident });
 
         const website = await client.website.findUnique({ where: { id: websiteId } });
         if (website) {

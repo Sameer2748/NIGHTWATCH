@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAllWebsites, getwebsiteDetails, postwebsiteDetails, acknowledgeIncident, sendTestAlert, deleteWebsite, togglePause } from "../../controllers/websiteControllers";
+import { getAllWebsites, getwebsiteDetails, postwebsiteDetails, acknowledgeIncident, sendTestAlert, deleteWebsite, togglePause, streamWebsiteTicks } from "../../controllers/websiteControllers";
 import { authMiddleware } from "../../middleware";
 import type { Request, Response, NextFunction } from "express";
 const router = Router();
@@ -18,6 +18,10 @@ router.post("/incident/:incidentId/acknowledge", authMiddleware, (req, res, next
 
 router.get("/:websiteId", authMiddleware, (req, res, next) => {
   getwebsiteDetails(req, res).catch(next);
+});
+
+router.get("/:websiteId/stream", (req, res, next) => {
+  streamWebsiteTicks(req, res).catch(next);
 });
 
 router.delete("/:websiteId", authMiddleware, (req, res, next) => {

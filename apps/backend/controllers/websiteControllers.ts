@@ -1,7 +1,7 @@
 import { client } from "@repo/db/client"
 import type { Request, Response } from "express";
 import got from "got";
-import { xAddAlert } from "@redis-stream/index";
+import { xAddAlert, createSubscriber } from "@redis-stream/index";
 
 export async function postwebsiteDetails(req: Request, res: Response): Promise<void> {
   try {
@@ -285,5 +285,39 @@ export async function togglePause(req: Request, res: Response): Promise<void> {
     res.status(200).json(updatedWebsite);
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function streamWebsiteTicks(req: Request, res: Response): Promise<void> {
+  const { websiteId } = req.params;
+
+  // Set headers for SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  const subscriber = await createSubscriber();
+  const channel = `monitor:${websiteId}:updates`;
+
+  try {
+    await subscriber.subscribe(channel, (message) => {
+      res.write(`data: ${message}\n\n`);
+    });
+
+    // Ping every 30s to keep connection alive
+    const pingInterval = setInterval(() => {
+      res.write(': ping\n\n');
+    }, 30000);
+
+    req.on('close', async () => {
+      clearInterval(pingInterval);
+      await subscriber.unsubscribe(channel);
+      await subscriber.quit();
+    });
+
+  } catch (error) {
+    console.error("SSE stream error:", error);
+    res.end();
   }
 }

@@ -116,3 +116,21 @@ export const xAckBulk = async (regionId: string, consumer_group: string, eventId
         console.error(`Error acknowledging events:`, error.message);
     }
 }
+
+// Global Publish / Subscribe
+export const publish = async (channel: string, data: any) => {
+    const c = await getClient();
+    try {
+        await c.publish(channel, JSON.stringify(data));
+    } catch (error: any) {
+        console.error(`Error publishing to Redis channel ${channel}:`, error.message);
+    }
+}
+
+export const createSubscriber = async () => {
+    const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+    const subClient = createClient({ url: redisUrl });
+    subClient.on("error", (err) => console.log("Redis Subscriber Error", err));
+    await subClient.connect();
+    return subClient;
+}
