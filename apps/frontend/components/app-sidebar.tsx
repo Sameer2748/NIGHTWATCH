@@ -53,7 +53,7 @@ const data = {
     },
     {
       title: "Incidents",
-      url: "#",
+      url: "/dashboard/incidents",
       icon: ListIcon,
     },
     {
