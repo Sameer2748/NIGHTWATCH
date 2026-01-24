@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { MoreHorizontal, Plus, Search, Activity, Pause, Play, Trash2 } from "lucide-react"
+import { MoreHorizontal, Plus, Search, Activity, Pause, Play, Trash2, HeartPulse } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,7 @@ import {
 import { tokenManager } from "@/lib/auth/tokenManager"
 import { getMonitors, Monitor, deleteMonitor, toggleMonitorPause } from "@/lib/api/monitors"
 
-export default function MonitorsPage() {
+export default function HeartbeatsPage() {
     const router = useRouter()
     const [monitors, setMonitors] = React.useState<Monitor[]>([])
     const [isLoading, setIsLoading] = React.useState(true)
@@ -50,11 +50,11 @@ export default function MonitorsPage() {
                 return
             }
             const data = await getMonitors(token)
-            // Filter out Heartbeats (show only URL/API)
-            setMonitors(data.filter(m => m.type !== 'HEARTBEAT'))
+            // Filter only Heartbeats
+            setMonitors(data.filter(m => m.type === 'HEARTBEAT'))
         } catch (error) {
-            console.error("Error fetching monitors:", error)
-            if (!silent) toast.error("Failed to load monitors")
+            console.error("Error fetching heartbeats:", error)
+            if (!silent) toast.error("Failed to load heartbeats")
         } finally {
             if (!silent) setIsLoading(false)
         }
@@ -63,7 +63,7 @@ export default function MonitorsPage() {
     const handleDelete = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation(); // Prevent row click
 
-        if (!confirm("Are you sure you want to delete this monitor? This action cannot be undone.")) return;
+        if (!confirm("Are you sure you want to delete this heartbeat monitor? This action cannot be undone.")) return;
 
         setIsDeleting(id);
         const token = tokenManager.getToken();
@@ -71,7 +71,7 @@ export default function MonitorsPage() {
 
         try {
             await deleteMonitor(id, token);
-            toast.success("Monitor deleted successfully");
+            toast.success("Heartbeat monitor deleted successfully");
             setMonitors(prev => prev.filter(m => m.id !== id));
         } catch (error) {
             console.error("Failed to delete monitor:", error);
@@ -90,12 +90,12 @@ export default function MonitorsPage() {
         try {
             const newStatus = !monitor.paused;
             await toggleMonitorPause(monitor.id, newStatus, token);
-            toast.success(newStatus ? "Monitor paused" : "Monitor resumed");
+            toast.success(newStatus ? "Heartbeat paused" : "Heartbeat resumed");
             // Update local state
             setMonitors(prev => prev.map(m => m.id === monitor.id ? { ...m, paused: newStatus } : m));
         } catch (error) {
             console.error("Failed to toggle pause:", error);
-            toast.error("Failed to update monitor status");
+            toast.error("Failed to update status");
         } finally {
             setIsPausing(null);
         }
@@ -109,38 +109,30 @@ export default function MonitorsPage() {
         <div className="flex flex-col gap-6 max-w-6xl mx-auto w-full">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
 
-                <h1 className="text-3xl font-bold tracking-tight text-text-primary">Monitors</h1>
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-pink-500/10 text-pink-500">
+                        <Activity className="w-6 h-6" />
+                    </div>
+                    <h1 className="text-3xl font-bold tracking-tight text-text-primary">Heartbeats</h1>
+                </div>
 
                 <div className="flex items-center gap-3">
                     <div className="relative group min-w-[300px]">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-button-primary transition-colors" />
                         <Input
-                            placeholder="Search"
+                            placeholder="Search cron jobs..."
                             className="pl-10 pr-10 bg-bg-primary border-border focus:ring-1 focus:ring-button-primary h-10 w-full"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded border border-border bg-card-bg text-[10px] text-text-muted hidden sm:block">
-                            /
-                        </div>
                     </div>
 
                     <Button
                         className="bg-button-primary hover:bg-button-primaryHover text-button-text font-semibold flex items-center gap-2 h-10 px-4"
-                        onClick={() => router.push("/dashboard/monitors/create")}
+                        onClick={() => router.push("/dashboard/heartbeats/create")}
                     >
-                        Create monitor
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <div className="border-l border-button-text/20 pl-2 ml-1 cursor-pointer">
-                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"></path></svg>
-                                </div>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="bg-card-bg border-border">
-                                <DropdownMenuItem onClick={() => { }}>New group</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => { }}>Import monitors</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        Create heartbeat
+                        <Plus className="w-4 h-4 ml-1" />
                     </Button>
                 </div>
             </div >
@@ -149,32 +141,32 @@ export default function MonitorsPage() {
                 {isLoading ? (
                     <div className="py-20 flex flex-col items-center justify-center text-text-muted gap-3">
                         <div className="w-8 h-8 rounded-full border-2 border-button-primary border-t-transparent animate-spin"></div>
-                        <p>Loading monitors...</p>
+                        <p>Loading heartbeats...</p>
                     </div>
                 ) : filteredMonitors.length === 0 ? (
                     <div className="py-20 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-center px-4">
                         <div className="w-16 h-16 rounded-full bg-card-bg flex items-center justify-center mb-4">
-                            <Activity className="w-8 h-8 text-text-muted" />
+                            <Activity className="w-8 h-8 text-pink-500" />
                         </div>
-                        <h3 className="text-xl font-semibold text-text-primary mb-2">No monitors found</h3>
+                        <h3 className="text-xl font-semibold text-text-primary mb-2">No heartbeats found</h3>
                         <p className="text-text-muted max-w-sm mb-6">
-                            {searchQuery ? `No monitors matching "${searchQuery}"` : "You haven't created any monitors yet. Start tracking your websites today."}
+                            {searchQuery ? `No heartbeats matching "${searchQuery}"` : "Monitor your cron jobs and background workers with Heartbeats."}
                         </p>
                         {!searchQuery && (
                             <Button
                                 variant="outline"
                                 className="border-border hover:bg-hover-bg text-text-primary"
-                                onClick={() => router.push("/dashboard/monitors/create")}
+                                onClick={() => router.push("/dashboard/heartbeats/create")}
                             >
-                                Create your first monitor
+                                Create your first heartbeat
                             </Button>
                         )}
                     </div>
                 ) : (
                     <div className="bg-card-bg/50 backdrop-blur-sm border border-border rounded-xl overflow-hidden shadow-sm">
                         <div className="px-4 py-3 bg-card-bg border-b border-border flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
-                            <svg className="w-3 h-3 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"></path></svg>
-                            Monitors
+                            <Activity className="w-3 h-3" />
+                            Heartbeats
                         </div>
 
                         {filteredMonitors.map((monitor) => {
@@ -186,14 +178,14 @@ export default function MonitorsPage() {
                                 <div
                                     key={monitor.id}
                                     className="group flex items-center justify-between p-4 border-b border-border last:border-0 hover:bg-hover-bg/30 transition-colors cursor-pointer"
-                                    onClick={() => router.push(`/dashboard/monitors/${monitor.id}`)}
+                                    onClick={() => router.push(`/dashboard/heartbeats/${monitor.id}`)}
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className={`w-2.5 h-2.5 rounded-full bg-${statusColor}-500 shadow-[0_0_8px_rgba(${statusColor === 'green' ? '34,197,94' : statusColor === 'red' ? '239,68,68' : '107,114,128'},0.4)]`}></div>
                                         <div className="flex flex-col">
                                             <span className="font-semibold text-text-primary group-hover:text-button-primary transition-colors">{monitor.url}</span>
                                             <span className="text-xs text-text-muted">
-                                                <span className={`text-${statusColor}-500 font-medium`}>{status}</span> · {new Date(monitor.timeAdded).toLocaleDateString()}
+                                                <span className={`text-${statusColor}-500 font-medium`}>{status}</span> · Expected every {monitor.period}s
                                             </span>
                                         </div>
                                     </div>
@@ -201,7 +193,7 @@ export default function MonitorsPage() {
                                     <div className="flex items-center gap-6">
                                         <div className="hidden sm:flex items-center gap-1.5 text-text-muted">
                                             <Activity className="w-4 h-4" />
-                                            <span className="text-xs font-medium">3m</span>
+                                            <span className="text-xs font-medium">1m</span>
                                         </div>
 
                                         <DropdownMenu>
@@ -218,10 +210,6 @@ export default function MonitorsPage() {
                                                 >
                                                     {monitor.paused ? <Play className="w-4 h-4 text-green-500" /> : <Pause className="w-4 h-4 text-orange-500" />}
                                                     {isPausing === monitor.id ? "Updating..." : (monitor.paused ? "Resume" : "Pause")}
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
-                                                    <Activity className="w-4 h-4" />
-                                                    Acknowledge
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator className="bg-border" />
                                                 <DropdownMenuItem
@@ -241,31 +229,6 @@ export default function MonitorsPage() {
                     </div>
                 )}
             </div>
-
-            {
-                !isLoading && monitors.length > 0 && (
-                    <div className="mt-8 space-y-4">
-                        <h2 className="text-lg font-semibold text-text-primary">Get the most out of Better Stack</h2>
-                        <div className="bg-card-bg/50 border border-border rounded-xl p-6 flex items-start gap-4 shadow-sm">
-                            <div className="w-10 h-10 rounded-full border-2 border-button-primary flex items-center justify-center shrink-0">
-                                <div className="w-2 h-2 rounded-full bg-button-primary"></div>
-                            </div>
-                            <div className="space-y-4 flex-1">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="font-semibold text-text-primary">Connect Slack or Microsoft Teams</h3>
-                                    <span className="text-xs text-text-muted font-medium">5 out of 6 steps left</span>
-                                </div>
-                                <p className="text-sm text-text-muted max-w-xl">
-                                    Get alerted about new incidents, and acknowledge and resolve incidents directly from Slack.
-                                </p>
-                                <Button variant="outline" className="border-border hover:bg-hover-bg h-9 text-sm">
-                                    Integrations
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
         </div >
     )
 }

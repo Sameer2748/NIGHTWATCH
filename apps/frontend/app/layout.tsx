@@ -1,20 +1,13 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Roboto, Silkscreen } from "next/font/google";
+import { Inter, Silkscreen } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme";
 import { ReduxProvider } from "@/store/provider";
 import { Toaster } from "sonner";
 
-const instrument = Instrument_Serif({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400"],
-  variable: "--font-instrument",
-});
-
-const roboto = Roboto({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "700"],
-  variable: "--font-roboto",
+  variable: "--font-inter",
 });
 
 const silkscreen = Silkscreen({
@@ -37,7 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${instrument.variable} ${roboto.variable} ${silkscreen.variable}`}>
+      <body className={`${inter.variable} ${silkscreen.variable}`}>
         <ReduxProvider>
           <ThemeProvider>
             {children}

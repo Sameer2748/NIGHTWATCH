@@ -58,7 +58,7 @@ const data = {
     },
     {
       title: "Heartbeats",
-      url: "#",
+      url: "/dashboard/heartbeats",
       icon: BarChartIcon,
     },
     {
@@ -133,10 +133,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu className="px-2 pb-4">
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={() => {
-                const audio = new Audio('/audio/infinity-castle-opening.mp3');
+              onClick={(e) => {
+                const audio = new Audio('/audio/nakime_biwa.mp3');
                 audio.play().catch(err => console.log('Audio play failed:', err));
-                toggleTheme();
+                toggleTheme(e);
               }}
               tooltip="Toggle Theme"
             >

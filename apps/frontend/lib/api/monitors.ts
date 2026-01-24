@@ -5,6 +5,9 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://loca
 export interface Monitor {
     id: string;
     url: string;
+    type?: "URL" | "HEARTBEAT";
+    period?: number;
+    grace_period?: number;
     timeAdded: string;
     user_id: string;
     paused: boolean;
@@ -68,10 +71,18 @@ export interface MonitorDetails extends Monitor {
     escalationSteps?: EscalationStep[];
 }
 
-export async function createMonitor(url: string, token: string, escalationSteps?: any[], keywordCheck?: string): Promise<Monitor> {
+export async function createMonitor(
+    url: string,
+    token: string,
+    escalationSteps?: any[],
+    keywordCheck?: string,
+    type: "URL" | "HEARTBEAT" = "URL",
+    period?: number,
+    grace_period?: number
+): Promise<Monitor> {
     const response = await axios.post(
         `${API_BASE_URL}/website`,
-        { url, escalationSteps, keywordCheck },
+        { url, escalationSteps, keywordCheck, type, period, grace_period },
         {
             headers: {
                 Authorization: `Bearer ${token}`,

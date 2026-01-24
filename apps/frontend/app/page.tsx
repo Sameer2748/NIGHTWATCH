@@ -45,12 +45,12 @@ export default function Home() {
               </button>
             </Link>
             <button
-              onClick={() => {
+              onClick={(e) => {
                 // Play audio
-                const audio = new Audio('/audio/infinity-castle-opening.mp3');
+                const audio = new Audio('/audio/nakime_biwa.mp3');
                 audio.play().catch(err => console.log('Audio play failed:', err));
                 // Toggle theme
-                toggleTheme();
+                toggleTheme(e);
               }}
               className="p-2 rounded-lg hover:bg-card-bg transition-colors"
               aria-label="Toggle theme"

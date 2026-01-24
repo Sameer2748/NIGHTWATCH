@@ -106,10 +106,10 @@ export default function PublicStatusPage() {
 
                     {/* Theme Switcher - Right */}
                     <button
-                        onClick={() => {
-                            const audio = new Audio('/audio/infinity-castle-opening.mp3');
+                        onClick={(e) => {
+                            const audio = new Audio('/audio/nakime_biwa.mp3');
                             audio.play().catch(err => console.log('Audio play failed:', err));
-                            toggleTheme();
+                            toggleTheme(e);
                         }}
                         className="p-2 rounded-lg hover:bg-card-bg transition-colors"
                         aria-label="Toggle theme"
@@ -205,31 +205,31 @@ export default function PublicStatusPage() {
                                                             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = bgColor}
                                                         >
                                                             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                                                                <div className="bg-white border border-gray-200 rounded-lg shadow-xl p-3 whitespace-nowrap">
+                                                                <div className="bg-popover border border-border rounded-lg shadow-xl p-3 whitespace-nowrap">
                                                                     <div className="flex items-center gap-2 mb-1">
                                                                         {isUp ? (
                                                                             <>
                                                                                 <CheckCircle2 className="w-4 h-4" style={{ color: '#069668' }} />
-                                                                                <span className="font-medium text-gray-900">Operational</span>
+                                                                                <span className="font-medium text-popover-foreground">Operational</span>
                                                                             </>
                                                                         ) : isDegraded ? (
                                                                             <>
                                                                                 <AlertCircle className="w-4 h-4" style={{ color: '#f59e0b' }} />
-                                                                                <span className="font-medium text-gray-900">Degraded</span>
+                                                                                <span className="font-medium text-popover-foreground">Degraded</span>
                                                                             </>
                                                                         ) : (
                                                                             <>
                                                                                 <XCircle className="w-4 h-4" style={{ color: '#b91c1b' }} />
-                                                                                <span className="font-medium text-gray-900">Downtime</span>
+                                                                                <span className="font-medium text-popover-foreground">Downtime</span>
                                                                             </>
                                                                         )}
                                                                     </div>
                                                                     {(isDown || isDegraded) && day.downMinutes && (
-                                                                        <p className="text-xs text-gray-500 mb-1">
+                                                                        <p className="text-xs text-muted-foreground mb-1">
                                                                             {isDown ? 'Down' : 'Degraded'} for {day.downMinutes} minutes
                                                                         </p>
                                                                     )}
-                                                                    <p className="text-xs text-gray-500">{dateStr}</p>
+                                                                    <p className="text-xs text-muted-foreground">{dateStr}</p>
                                                                 </div>
                                                             </div>
                                                         </div>

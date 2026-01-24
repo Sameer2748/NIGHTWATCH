@@ -138,13 +138,13 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
         const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
         const API_STREAM_URL = `${baseUrl}/website/${id}/stream`;
 
-        console.log("[SSE] Connecting to:", API_STREAM_URL);
+
         const eventSource = new EventSource(API_STREAM_URL);
 
         eventSource.onmessage = (event) => {
             try {
                 const update = JSON.parse(event.data);
-                console.log("[SSE] Update Received:", update);
+
 
                 setMonitor(prev => {
                     if (!prev) return prev;
@@ -192,7 +192,7 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
         };
 
         return () => {
-            console.log("[SSE] Closing connection");
+
             eventSource.close();
         };
     }, [id]);
@@ -222,11 +222,8 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
         try {
             if (!silent) setIsLoading(true)
             const data = await getMonitorDetails(id, token, selectedRegion)
-            console.log("Monitor Data Received:", {
-                url: data.url,
-                ticksCount: data.ticks?.length,
-                latestTicks: data.ticks?.slice(0, 5).map(t => ({ time: t.createdAt, status: t.status }))
-            })
+
+
             setMonitor(data)
         } catch (error) {
             console.error("Failed to fetch monitor details:", error)
@@ -504,6 +501,54 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
                     </div>
                 </div>
 
+                {/* Heartbeat Instructions */}
+                {monitor.type === 'HEARTBEAT' && (
+                    <Card className="bg-card-bg border-border-color shadow-sm">
+                        <CardHeader className="pb-3 border-b border-border/50">
+                            <div className="flex items-center gap-2">
+                                <Activity className="w-5 h-5 text-button-primary" />
+                                <CardTitle className="text-base font-semibold">Heartbeat Configuration</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="pt-4">
+                            <div className="space-y-4">
+                                <p className="text-sm text-text-muted">
+                                    To keep this monitor <strong>Up</strong>, send an HTTP request to the URL below every <strong>{monitor.period} seconds</strong>.
+                                    <br />
+                                    We will wait an extra <strong>{monitor.grace_period} seconds</strong> before marking it as Down.
+                                </p>
+                                <div className="flex items-center gap-2 bg-black/20 p-1.5 rounded-lg border border-border/50">
+                                    <code className="flex-1 px-2 font-mono text-xs text-button-primary truncate">
+                                        {`${API_BASE_URL}/heartbeat/${monitor.id}`}
+                                    </code>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-xs hover:bg-white/10"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(`${API_BASE_URL}/heartbeat/${monitor.id}`);
+                                            toast.success("Copied to clipboard");
+                                        }}
+                                    >
+                                        Copy
+                                    </Button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px]">
+                                        GET
+                                    </Badge>
+                                    <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px]">
+                                        POST
+                                    </Badge>
+                                    <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px]">
+                                        HEAD
+                                    </Badge>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {/* Quick Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Card className="bg-card-bg border-border-color shadow-sm">
@@ -538,7 +583,9 @@ export default function MonitorDetailPage({ params }: { params: Promise<{ id: st
                 <Card className="bg-card-bg border-border-color overflow-hidden min-w-0 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between border-b border-border-color px-6 py-4">
                         <div className="flex items-center gap-4">
-                            <CardTitle className="text-base font-semibold">Response times</CardTitle>
+                            <CardTitle className="text-base font-semibold">
+                                {monitor.type === 'HEARTBEAT' ? 'Heartbeat Timeline' : 'Response times'}
+                            </CardTitle>
                             <div className="relative">
                                 <select
                                     value={selectedRegion}

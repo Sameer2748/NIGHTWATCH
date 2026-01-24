@@ -25,13 +25,25 @@ interface EscalationContact {
     value: string;
 }
 
-export default function CreateMonitorPage() {
+const unitMultipliers: Record<string, number> = {
+    'seconds': 1,
+    'minutes': 60,
+    'hours': 3600,
+    'days': 86400
+}
+
+export default function CreateHeartbeatPage() {
     const router = useRouter()
-    const [url, setUrl] = React.useState("")
-    const [keyword, setKeyword] = React.useState("")
+    const [name, setName] = React.useState("")
     const [isLoading, setIsLoading] = React.useState(false)
     const [emailEnabled, setEmailEnabled] = React.useState(true)
     const [contacts, setContacts] = React.useState<EscalationContact[]>([])
+
+    const [periodValue, setPeriodValue] = React.useState("1")
+    const [periodUnit, setPeriodUnit] = React.useState("days")
+
+    const [graceValue, setGraceValue] = React.useState("5")
+    const [graceUnit, setGraceUnit] = React.useState("minutes")
 
     const addContact = () => {
         const newContact: EscalationContact = {
@@ -52,8 +64,8 @@ export default function CreateMonitorPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!url) {
-            toast.error("Please enter a website URL")
+        if (!name) {
+            toast.error("Please enter a monitor name")
             return
         }
 
@@ -66,8 +78,7 @@ export default function CreateMonitorPage() {
                 return
             }
 
-            // Construct escalation steps
-            const escalationSteps: any[] = []
+            const escalationSteps = []
             if (emailEnabled) {
                 escalationSteps.push({ type: 'EMAIL', value: 'OWNER', order: 0 })
             }
@@ -82,19 +93,24 @@ export default function CreateMonitorPage() {
                 }
             })
 
+            const totalPeriod = parseInt(periodValue) * (unitMultipliers[periodUnit] || 1);
+            const totalGrace = parseInt(graceValue) * (unitMultipliers[graceUnit] || 1);
+
             await createMonitor(
-                url,
+                name,
                 token!,
                 escalationSteps,
-                keyword,
-                "URL" // Explicitly URL
+                undefined, // keywordCheck
+                "HEARTBEAT",
+                totalPeriod,
+                totalGrace
             )
 
-            toast.success("Monitor created successfully")
-            router.push("/dashboard/monitors")
+            toast.success("Heartbeat monitor created")
+            router.push("/dashboard/heartbeats")
         } catch (error) {
-            console.error("Error creating monitor:", error)
-            toast.error("Failed to create monitor")
+            console.error("Error creating heartbeat:", error)
+            toast.error("Failed to create heartbeat")
         } finally {
             setIsLoading(false)
         }
@@ -103,53 +119,102 @@ export default function CreateMonitorPage() {
     return (
         <div className="flex flex-col gap-8 max-w-4xl pb-20">
             <div className="flex items-center gap-2 text-sm text-text-muted">
-                <span className="flex items-center gap-1 hover:text-text-primary cursor-pointer" onClick={() => router.push("/dashboard/monitors")}>
+                <span className="flex items-center gap-1 hover:text-text-primary cursor-pointer" onClick={() => router.push("/dashboard/heartbeats")}>
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
-                    Monitors
+                    Heartbeats
                 </span>
                 <ChevronRight className="w-4 h-4" />
-                <span className="text-text-primary font-medium">Create monitor</span>
+                <span className="text-text-primary font-medium">Create heartbeat</span>
             </div>
 
             <div className="space-y-6">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-text-primary">Create monitor</h1>
-                    <p className="text-text-muted mt-2">Start monitoring your services in seconds.</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-text-primary">Create Heartbeat</h1>
+                    <p className="text-text-muted mt-2">Monitor your cron jobs and background workers.</p>
                 </div>
 
                 <div className="space-y-4">
                     <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
                         <span className="flex items-center justify-center w-6 h-6 rounded-full bg-button-primary/10 text-button-primary text-xs">1</span>
-                        What to monitor
+                        Configuration
                     </h2>
 
                     <Card className="border-border bg-card-bg/30 backdrop-blur-md shadow-sm">
                         <CardContent className="pt-6 space-y-6">
+
+                            <div className="p-4 rounded-lg bg-pink-500/10 border border-pink-500/20">
+                                <p className="text-sm text-pink-400 flex items-start gap-2">
+                                    <Info className="w-4 h-4 mt-0.5 shrink-0" />
+                                    Active monitoring (Heartbeat) works by sending a request to a unique URL we provide. Useful for cron jobs and background workers.
+                                </p>
+                            </div>
+
                             <div className="space-y-3">
-                                <Label htmlFor="url" className="text-sm font-medium flex items-center gap-2">
-                                    URL to monitor <Info className="w-3.5 h-3.5 text-text-muted" />
-                                </Label>
+                                <Label htmlFor="name" className="text-sm font-medium text-text-muted">What service will this heartbeat track?</Label>
                                 <Input
-                                    id="url"
-                                    placeholder="https://example.com"
-                                    value={url}
-                                    onChange={(e) => setUrl(e.target.value)}
+                                    id="name"
+                                    placeholder="Example: Daily database backup"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
                                     className="bg-transparent border-border h-11 focus:ring-button-primary"
                                 />
                             </div>
 
-                            <div className="space-y-3">
-                                <Label htmlFor="keyword" className="text-sm font-medium flex items-center gap-2">
-                                    Keyword Check (Optional)
-                                    <span className="text-xs text-text-muted font-normal">- Mark as down if this word is missing</span>
-                                </Label>
-                                <Input
-                                    id="keyword"
-                                    placeholder="e.g. Welcome"
-                                    value={keyword}
-                                    onChange={(e) => setKeyword(e.target.value)}
-                                    className="bg-transparent border-border h-11 focus:ring-button-primary"
-                                />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
+                                <div className="space-y-3">
+                                    <Label htmlFor="period" className="text-sm font-medium text-text-muted">Expect a heartbeat every</Label>
+                                    <div className="flex relative items-center">
+                                        <Input
+                                            id="period"
+                                            type="number"
+                                            value={periodValue}
+                                            onChange={(e) => setPeriodValue(e.target.value)}
+                                            className="bg-transparent border-border h-11 focus:ring-button-primary focus:z-10 w-24 rounded-r-none border-r-0"
+                                        />
+                                        <Select
+                                            value={periodUnit}
+                                            onValueChange={setPeriodUnit}
+                                        >
+                                            <SelectTrigger className="bg-transparent border-border h-11 focus:ring-button-primary focus:z-10 w-32 rounded-l-none">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-card-bg border-border">
+                                                <SelectItem value="seconds">seconds</SelectItem>
+                                                <SelectItem value="minutes">minutes</SelectItem>
+                                                <SelectItem value="hours">hours</SelectItem>
+                                                <SelectItem value="days">days</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    <Label htmlFor="grace" className="text-sm font-medium text-text-muted flex items-center gap-1">
+                                        with a grace period <Info className="w-3 h-3" /> of
+                                    </Label>
+                                    <div className="flex relative items-center">
+                                        <Input
+                                            id="grace"
+                                            type="number"
+                                            value={graceValue}
+                                            onChange={(e) => setGraceValue(e.target.value)}
+                                            className="bg-transparent border-border h-11 focus:ring-button-primary focus:z-10 w-24 rounded-r-none border-r-0"
+                                        />
+                                        <Select
+                                            value={graceUnit}
+                                            onValueChange={setGraceUnit}
+                                        >
+                                            <SelectTrigger className="bg-transparent border-border h-11 focus:ring-button-primary focus:z-10 w-32 rounded-l-none">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-card-bg border-border">
+                                                <SelectItem value="seconds">seconds</SelectItem>
+                                                <SelectItem value="minutes">minutes</SelectItem>
+                                                <SelectItem value="hours">hours</SelectItem>
+                                                <SelectItem value="days">days</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -173,7 +238,6 @@ export default function CreateMonitorPage() {
 
                     <Card className="border-border bg-card-bg/30 backdrop-blur-md shadow-sm">
                         <CardContent className="pt-6 space-y-6">
-                            {/* Default Email Notification */}
                             <div className={`p-4 rounded-xl border transition-all ${emailEnabled ? 'bg-button-primary/5 border-button-primary/30' : 'bg-transparent border-border'}`}>
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
@@ -194,7 +258,6 @@ export default function CreateMonitorPage() {
                                 </div>
                             </div>
 
-                            {/* Dynamic Escalation Steps */}
                             <div className="space-y-3">
                                 {contacts.length > 0 && (
                                     <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest px-1">Escalation Sequence</p>
@@ -256,9 +319,9 @@ export default function CreateMonitorPage() {
                         {isLoading ? (
                             <div className="flex items-center gap-2">
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                Creating Monitor...
+                                Creating Heartbeat...
                             </div>
-                        ) : "Deploy Monitor"}
+                        ) : "Create Heartbeat"}
                     </Button>
                 </div>
             </div>

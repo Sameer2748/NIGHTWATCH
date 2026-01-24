@@ -5,7 +5,7 @@ import { ThemeMode, colors } from './colors';
 
 interface ThemeContextType {
     theme: ThemeMode;
-    toggleTheme: () => void;
+    toggleTheme: (e?: React.MouseEvent | React.KeyboardEvent) => void;
     setTheme: (theme: ThemeMode) => void;
     colors: typeof colors.dark | typeof colors.light;
 }
@@ -58,8 +58,30 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(THEME_STORAGE_KEY, theme);
     }, [theme, mounted]);
 
-    const toggleTheme = () => {
-        setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
+    const toggleTheme = (e?: React.MouseEvent | React.KeyboardEvent) => {
+        const root = document.documentElement;
+
+        if (e && 'clientX' in e) {
+            const x = e.clientX;
+            const y = e.clientY;
+            root.style.setProperty('--click-x', `${x}px`);
+            root.style.setProperty('--click-y', `${y}px`);
+        } else {
+            // Default to center if no event or keyboard event
+            const x = window.innerWidth / 2;
+            const y = window.innerHeight / 2;
+            root.style.setProperty('--click-x', `${x}px`);
+            root.style.setProperty('--click-y', `${y}px`);
+        }
+
+        if (!(document as any).startViewTransition) {
+            setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
+            return;
+        }
+
+        (document as any).startViewTransition(() => {
+            setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
+        });
     };
 
     const setTheme = (newTheme: ThemeMode) => {

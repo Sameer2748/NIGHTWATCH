@@ -47,7 +47,7 @@ html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
-  font-family: var(--font-work-sans), "Work Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
 body {
@@ -122,5 +122,45 @@ html.light {
     --sidebar-ring: var(--color-button-primary);
     --chart-1: var(--color-button-primary);
     --chart-2: var(--color-secondary);
+  }
+
+  * {
+    @apply border-border;
+  }
+}
+
+/* Theme Switch View Transition */
+/* Theme Switch View Transition */
+::view-transition,
+::view-transition-group(root),
+::view-transition-image-pair(root),
+::view-transition-old(root),
+::view-transition-new(root) {
+  pointer-events: none !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+  animation: expand-circle 0.5s ease-in-out forwards;
+  clip-path: circle(0% at var(--click-x, 0%) var(--click-y, 100%));
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+@keyframes expand-circle {
+  0% {
+    clip-path: circle(0% at var(--click-x, 0%) var(--click-y, 100%));
+  }
+
+  100% {
+    clip-path: circle(150% at var(--click-x, 0%) var(--click-y, 100%));
   }
 }
