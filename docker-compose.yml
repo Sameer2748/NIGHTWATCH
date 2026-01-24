@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # ----------------------------
+  # Infrastructure (DB + Redis)
+  # ----------------------------
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: betterstack
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # ----------------------------
+  # Application Services
+  # ----------------------------
+  
+  # 1. API Backend
+  backend:
+    build: .
+    restart: always
+    command: sh -c "cd packages/db && npx prisma db push && cd ../../apps/backend && npm run dev"
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/betterstack
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: supersecret123
+      PORT: 3000
+    depends_on:
+      - postgres
+      - redis
+
+  # 2. Producer (Schedules checks)
+  producer:
+    build: .
+    restart: always
+    command: sh -c "cd apps/producer && npm run dev"
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/betterstack
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+  # 3. Worker (Executes checks)
+  worker:
+    build: .
+    restart: always
+    command: sh -c "cd apps/worker && npm run dev"
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/betterstack
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+  # 4. Notifier (Sends alerts)
+  notifier:
+    build: .
+    restart: always
+    command: sh -c "cd apps/notifier && npm run dev"
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/betterstack
+      REDIS_URL: redis://redis:6379
+      # Add email/SMS API keys here later
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  postgres_data:
+  redis_data:
