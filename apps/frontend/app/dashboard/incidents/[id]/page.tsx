@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, CheckCircle, Clock, Mail, MessageSquare, Phone, ChevronDown, ChevronUp, UserCheck, Globe } from 'lucide-react';
 import { getIncidentDetails, IncidentWithDetails } from '@/lib/api/incidents';
@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-export default function IncidentDetailsPage({ params }: { params: { id: string } }) {
+export default function IncidentDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
     const [incident, setIncident] = useState<IncidentWithDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [openTimelineId, setOpenTimelineId] = useState<string | null>(null);
@@ -25,7 +26,7 @@ export default function IncidentDetailsPage({ params }: { params: { id: string }
             }
 
             try {
-                const data = await getIncidentDetails(params.id, token);
+                const data = await getIncidentDetails(id, token);
                 setIncident(data);
             } catch (error) {
                 console.error("Failed to fetch incident details", error);
@@ -35,7 +36,7 @@ export default function IncidentDetailsPage({ params }: { params: { id: string }
         };
 
         fetchDetails();
-    }, [params.id, router]);
+    }, [id, router]);
 
     if (isLoading) return <div className="p-8 text-center text-text-muted">Loading details...</div>;
     if (!incident) return <div className="p-8 text-center text-text-muted">Incident not found</div>;
