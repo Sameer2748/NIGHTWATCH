@@ -5,9 +5,9 @@ import { xAddAlert, createSubscriber } from "@redis-stream/index";
 
 export async function postwebsiteDetails(req: Request, res: Response): Promise<void> {
   try {
-    const { url, escalationSteps, keywordCheck } = req.body;
+    const { url, escalationSteps, keywordCheck, type, period, grace_period } = req.body;
     if (!url) {
-      res.status(411).json({ message: "URL is required" });
+      res.status(411).json({ message: "URL/Name is required" });
       return;
     }
 
@@ -15,6 +15,9 @@ export async function postwebsiteDetails(req: Request, res: Response): Promise<v
     const website = await client.website.create({
       data: {
         url,
+        type: type || "URL",
+        period: period ? parseInt(period) : 180,
+        grace_period: grace_period ? parseInt(grace_period) : 30,
         keywordCheck: keywordCheck || null,
         timeAdded: new Date(),
         user_id: req.userId as string,
@@ -31,8 +34,10 @@ export async function postwebsiteDetails(req: Request, res: Response): Promise<v
       }
     });
 
-    performInitialCheck(website.url, website.id).catch(err => {
-    });
+    if (website.type === "URL") {
+      performInitialCheck(website.url, website.id).catch(err => {
+      });
+    }
 
     res.status(201).json(website);
     return;
