@@ -79,7 +79,7 @@ async function checkHeartbeats() {
 
 async function main() {
     if (isMainRunning) {
-
+        console.log('[PRODUCER] Skipping cycle - previous cycle still running');
         return;
     }
 
@@ -88,21 +88,23 @@ async function main() {
     const cycleId = `CYC-${Date.now().toString().slice(-6)}`;
     const timestamp = new Date().toISOString();
 
-
+    console.log(`[PRODUCER] Starting cycle #${cycleCount} at ${timestamp}`);
 
     try {
         // ALWAYS check heartbeats (every 1 min)
         await checkHeartbeats();
+        console.log('[PRODUCER] Heartbeat check completed');
 
         // ONLY check URLs every 3rd cycle (3 mins)
         if (cycleCount % 3 === 0) {
+            console.log('[PRODUCER] URL check cycle - fetching websites...');
 
             const websites = await client.website.findMany({
                 where: { paused: false, type: "URL" },
                 select: { url: true, id: true }
             });
 
-
+            console.log(`[PRODUCER] Found ${websites.length} URL monitors to check`);
 
             if (websites.length > 0) {
                 const websiteData = websites.map(w => ({
@@ -113,22 +115,20 @@ async function main() {
                 }));
 
 
-                // Send to both regions
-                const [indiaRes, usaRes] = await Promise.all([
-                    xAddBulk(REGIONS.INDIA, websiteData),
-                    xAddBulk(REGIONS.USA, websiteData)
-                ]);
+                // Send to primary region (India)
+                await xAddBulk(REGIONS.INDIA, websiteData);
+                console.log(`[PRODUCER] Dispatched ${websites.length} websites to India region`);
 
             }
         } else {
-
+            console.log(`[PRODUCER] Skipping URL check (cycle ${cycleCount} % 3 = ${cycleCount % 3})`);
         }
 
     } catch (error: any) {
         console.error("[PRODUCER] CRITICAL ERROR in cycle:", error);
     } finally {
         isMainRunning = false;
-
+        console.log(`[PRODUCER] Cycle #${cycleCount} completed\n`);
     }
 }
 

@@ -77,6 +77,22 @@ async function handleEscalation(websiteId: string, incidentId: string | undefine
         if (!targetValue) continue;
 
 
+        let eventId = '';
+        if (currentIncident) {
+            try {
+                const event = await client.incidentEvent.create({
+                    data: {
+                        incident_id: currentIncident.id,
+                        type: step.type,
+                        value: targetValue,
+                        status: 'PENDING',
+                        message: `Sending ${step.type} to ${targetValue}...`
+                    }
+                });
+                eventId = event.id;
+            } catch (e) { }
+        }
+
         try {
             switch (step.type) {
                 case 'EMAIL':
@@ -90,12 +106,25 @@ async function handleEscalation(websiteId: string, incidentId: string | undefine
                     break;
             }
 
+            if (eventId) {
+                await client.incidentEvent.update({
+                    where: { id: eventId },
+                    data: { status: 'SENT', message: `Successfully sent ${step.type} to ${targetValue}` }
+                });
+            }
+
             await new Promise(resolve => setTimeout(resolve, 5000));
 
             if (step.type === 'CALL') {
                 break;
             }
-        } catch (err) {
+        } catch (err: any) {
+            if (eventId) {
+                await client.incidentEvent.update({
+                    where: { id: eventId },
+                    data: { status: 'FAILED', message: err.message || 'Failed to send' }
+                });
+            }
         }
     }
 }

@@ -8,37 +8,32 @@ datasource db {
 }
 
 model User {
-  id          String     @id @default(uuid())
-  name        String     @unique
-  email       String?    @unique
-  phoneNumber String?
+  id          String       @id @default(uuid())
+  name        String       @unique
   password    String?
-  googleId    String?    @unique
-  websites    Website[]
+  email       String?      @unique
+  phoneNumber String?
+  googleId    String?      @unique
   statusPages StatusPage[]
+  websites    Website[]
 }
 
 model Website {
   id              String           @id @default(uuid())
   url             String
-  type            MonitorType      @default(URL)
   timeAdded       DateTime
-  paused          Boolean          @default(false)
-  period          Int              @default(180) // Expected interval in seconds
-  grace_period    Int              @default(30)  // Grace period for heartbeats
-  last_heartbeat  DateTime?
-  ticks           WebsiteTick[]
-  incidents       Incident[]
   user_id         String
   keywordCheck    String?          @default("")
-  user            User             @relation(fields: [user_id], references: [id])
+  paused          Boolean          @default(false)
+  grace_period    Int              @default(30)
+  last_heartbeat  DateTime?
+  period          Int              @default(180)
+  type            MonitorType      @default(URL)
   escalationSteps EscalationStep[]
-  statusPages     StatusPage[]
-}
-
-enum MonitorType {
-  URL
-  HEARTBEAT
+  incidents       Incident[]
+  user            User             @relation(fields: [user_id], references: [id])
+  ticks           WebsiteTick[]
+  statusPages     StatusPage[]     @relation("StatusPageToWebsite")
 }
 
 model StatusPage {
@@ -47,19 +42,76 @@ model StatusPage {
   slug        String    @unique
   description String?
   user_id     String
-  user        User      @relation(fields: [user_id], references: [id])
-  monitors    Website[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [user_id], references: [id])
+  monitors    Website[] @relation("StatusPageToWebsite")
 }
 
 model EscalationStep {
-  id        String           @id @default(uuid())
+  id         String           @id @default(uuid())
   website_id String
-  website   Website          @relation(fields: [website_id], references: [id])
-  order     Int              // 0, 1, 2... for priority
-  type      NotificationType
-  value     String           // Email or Phone number
+  order      Int
+  type       NotificationType
+  value      String
+  website    Website          @relation(fields: [website_id], references: [id])
+}
+
+model Region {
+  id        String        @id @default(uuid())
+  name      String
+  incidents Incident[]
+  ticks     WebsiteTick[]
+}
+
+model WebsiteTick {
+  id               String        @id @default(uuid())
+  response_time_ms Int
+  status           WebsiteStatus
+  region_id        String
+  website_id       String
+  createdAt        DateTime      @default(now())
+  dns_time_ms      Int?
+  download_time_ms Int?
+  tcp_time_ms      Int?
+  tls_time_ms      Int?
+  ttfb_ms          Int?
+  message          String?
+  region           Region        @relation(fields: [region_id], references: [id])
+  website          Website       @relation(fields: [website_id], references: [id])
+}
+
+model Incident {
+  id             String          @id @default(uuid())
+  website_id     String
+  region_id      String
+  startedAt      DateTime        @default(now())
+  resolvedAt     DateTime?
+  duration       Int?
+  status         IncidentStatus  @default(ONGOING)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+  region         Region          @relation(fields: [region_id], references: [id])
+  website        Website         @relation(fields: [website_id], references: [id])
+  events         IncidentEvent[]
+}
+
+model IncidentEvent {
+  id          String           @id @default(uuid())
+  incident_id String
+  type        NotificationType
+  value       String           // Recipient email/phone number
+  status      EventStatus      @default(PENDING)
+  message     String?
+  createdAt   DateTime         @default(now())
+  incident    Incident         @relation(fields: [incident_id], references: [id])
+}
+
+enum MonitorType {
+  URL
+  HEARTBEAT
 }
 
 enum NotificationType {
@@ -69,44 +121,10 @@ enum NotificationType {
   PUSH
 }
 
-model Region {
-  id        String        @id @default(uuid())
-  name      String
-  ticks     WebsiteTick[]
-  incidents Incident[]
-}
-
-model WebsiteTick {
-  id               String        @id @default(uuid())
-  response_time_ms Int
-  dns_time_ms      Int? // DNS lookup time
-  tcp_time_ms      Int? // TCP connection time
-  tls_time_ms      Int? // TLS handshake time
-  ttfb_ms          Int? // Time to first byte
-  download_time_ms Int? // Download/data transfer time
-  status           WebsiteStatus
-  region           Region        @relation(fields: [region_id], references: [id])
-  website          Website       @relation(fields: [website_id], references: [id])
-  region_id        String
-  website_id       String
-  message          String?
-  createdAt        DateTime      @default(now())
-}
-
-model Incident {
-  id             String         @id @default(uuid())
-  website        Website        @relation(fields: [website_id], references: [id])
-  website_id     String
-  region         Region         @relation(fields: [region_id], references: [id])
-  region_id      String
-  startedAt      DateTime       @default(now())
-  resolvedAt     DateTime?
-  duration       Int? // Duration in seconds
-  status         IncidentStatus @default(ONGOING)
-  acknowledgedAt DateTime?
-  acknowledgedBy String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+enum EventStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 enum IncidentStatus {

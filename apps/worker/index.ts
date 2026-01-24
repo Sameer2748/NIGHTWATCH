@@ -24,9 +24,12 @@ async function main() {
             const response = await xReadGroup(regionId, `consumer-group-${regionId}`, workerId) as message[];
 
             if (!response || response.length === 0) {
+                console.log(`[${workerId}] No messages, waiting 2s...`);
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 continue;
             }
+
+            console.log(`[${workerId}] Received ${response.length} messages`);
 
             const now = Date.now();
             const staleThresholdMs = 15 * 60 * 1000;
@@ -39,37 +42,44 @@ async function main() {
                 const sentAtTime = item.message.sentAt ? new Date(item.message.sentAt).getTime() : now;
 
                 if (now - sentAtTime > staleThresholdMs) {
+                    console.log(`[${workerId}] Skipping stale message for ${item.message.url}`);
                     continue;
                 }
                 latestMessages.set(websiteId, item);
             }
 
             if (latestMessages.size > 0) {
+                console.log(`[${workerId}] Processing ${latestMessages.size} websites`);
                 const isNightwatchHealthy = await checkNightwatchHealth();
                 await alertMasterOnStateChange(workerId, regionId, isNightwatchHealthy);
 
                 if (!isNightwatchHealthy) {
+                    console.log(`[${workerId}] Nightwatch unhealthy, skipping processing`);
                     await xAckBulk(regionId, `consumer-group-${regionId}`, allStreamIds);
                     continue;
                 }
 
                 const tasks = Array.from(latestMessages.values()).map(async (msg) => {
                     try {
+                        console.log(`[${workerId}] Checking ${msg.message.url}`);
                         await withTimeout(
                             processWebsites(msg.message.url, msg.message.id),
                             45000,
                             `Task for ${msg.message.url} timed out overall`
                         );
                     } catch (e: any) {
+                        console.error(`[${workerId}] Error processing ${msg.message.url}:`, e.message);
                     }
                 });
 
                 await Promise.all(tasks);
+                console.log(`[${workerId}] Completed processing batch`);
             }
 
             await xAckBulk(regionId, `consumer-group-${regionId}`, allStreamIds);
 
         } catch (error: any) {
+            console.error(`[${workerId}] CRITICAL ERROR:`, error);
             await new Promise(resolve => setTimeout(resolve, 5000));
             process.exit(1);
         }
