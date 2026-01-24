@@ -3,6 +3,9 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "dev": "bun index.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
@@ -11,7 +14,7 @@
   },
   "dependencies": {
     "@repo/db": "*",
-    "@redis-stream":"*",
+    "@redis-stream": "*",
     "redis": "^5.10.0"
   }
 }

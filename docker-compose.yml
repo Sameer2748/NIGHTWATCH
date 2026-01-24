@@ -32,7 +32,7 @@ services:
   backend:
     build: .
     restart: always
-    command: sh -c "cd packages/db && npx prisma db push && cd ../../apps/backend && npm run dev"
+    command: sh -c "cd packages/db && bunx prisma db push && cd ../../apps/backend && bun run dev"
     ports:
       - "3000:3000"
     environment:
@@ -48,7 +48,7 @@ services:
   producer:
     build: .
     restart: always
-    command: sh -c "cd apps/producer && npm run dev"
+    command: sh -c "cd apps/producer && bun run dev"
     environment:
       DATABASE_URL: postgres://postgres:password@postgres:5432/betterstack
       REDIS_URL: redis://redis:6379
@@ -60,7 +60,7 @@ services:
   worker:
     build: .
     restart: always
-    command: sh -c "cd apps/worker && npm run dev"
+    command: sh -c "cd apps/worker && bun run dev"
     environment:
       DATABASE_URL: postgres://postgres:password@postgres:5432/betterstack
       REDIS_URL: redis://redis:6379
@@ -72,7 +72,7 @@ services:
   notifier:
     build: .
     restart: always
-    command: sh -c "cd apps/notifier && npm run dev"
+    command: sh -c "cd apps/notifier && bun run dev"
     environment:
       DATABASE_URL: postgres://postgres:password@postgres:5432/betterstack
       REDIS_URL: redis://redis:6379
