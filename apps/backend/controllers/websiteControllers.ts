@@ -176,11 +176,17 @@ export async function acknowledgeIncident(req: Request, res: Response): Promise<
       return;
     }
 
+    // Fetch user email instead of storing user ID
+    const user = await client.user.findUnique({
+      where: { id: req.userId as string }
+    });
+    const acknowledgedByEmail = user?.email || "Unknown User";
+
     const updatedIncident = await client.incident.update({
       where: { id: incidentId },
       data: {
         acknowledgedAt: new Date(),
-        acknowledgedBy: req.userId as string
+        acknowledgedBy: acknowledgedByEmail
       }
     });
 
@@ -242,7 +248,19 @@ export async function deleteWebsite(req: Request, res: Response): Promise<void> 
       where: { website_id: websiteId }
     });
 
-    // 2. Incidents
+    // 2. Incidents & Incident Events
+    const incidents = await client.incident.findMany({
+      where: { website_id: websiteId },
+      select: { id: true }
+    });
+
+    if (incidents.length > 0) {
+      const incidentIds = incidents.map(i => i.id);
+      await client.incidentEvent.deleteMany({
+        where: { incident_id: { in: incidentIds } }
+      });
+    }
+
     await client.incident.deleteMany({
       where: { website_id: websiteId }
     });
