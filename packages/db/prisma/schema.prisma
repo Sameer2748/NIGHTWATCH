@@ -21,8 +21,12 @@ model User {
 model Website {
   id              String           @id @default(uuid())
   url             String
+  type            MonitorType      @default(URL)
   timeAdded       DateTime
   paused          Boolean          @default(false)
+  period          Int              @default(180) // Expected interval in seconds
+  grace_period    Int              @default(30)  // Grace period for heartbeats
+  last_heartbeat  DateTime?
   ticks           WebsiteTick[]
   incidents       Incident[]
   user_id         String
@@ -30,6 +34,11 @@ model Website {
   user            User             @relation(fields: [user_id], references: [id])
   escalationSteps EscalationStep[]
   statusPages     StatusPage[]
+}
+
+enum MonitorType {
+  URL
+  HEARTBEAT
 }
 
 model StatusPage {
