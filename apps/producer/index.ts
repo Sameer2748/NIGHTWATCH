@@ -119,6 +119,10 @@ async function main() {
                 await xAddBulk(REGIONS.INDIA, websiteData);
                 console.log(`[PRODUCER] Dispatched ${websites.length} websites to India region`);
 
+                // Send to USA region
+                await xAddBulk(REGIONS.USA, websiteData);
+                console.log(`[PRODUCER] Dispatched ${websites.length} websites to USA region`);
+
             }
         } else {
             console.log(`[PRODUCER] Skipping URL check (cycle ${cycleCount} % 3 = ${cycleCount % 3})`);

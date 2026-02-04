@@ -3,8 +3,12 @@ FROM oven/bun:1 AS base
 # Install dependencies only when needed
 FROM base AS deps
 WORKDIR /app
-COPY package.json bun.lockb* package-lock.json* ./
+COPY package.json bun.lock bun.lockb* package-lock.json* ./
 COPY packages/db/package.json packages/db/
+COPY packages/redisstream/package.json packages/redisstream/
+COPY packages/eslint-config/package.json packages/eslint-config/
+COPY packages/typescript-config/package.json packages/typescript-config/
+COPY packages/ui/package.json packages/ui/
 COPY apps/backend/package.json apps/backend/
 COPY apps/worker/package.json apps/worker/
 COPY apps/producer/package.json apps/producer/

@@ -158,6 +158,7 @@ const processWebsites = async (url: string, websiteId: string) => {
             "Database operation timed out"
         );
     } catch (e: any) {
+        console.error(`[Worker] DB Work failed for ${websiteId}:`, e);
     }
 }
 

@@ -8,9 +8,9 @@ services:
     image: postgres:15-alpine
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: betterstack
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
@@ -19,6 +19,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD}
     ports:
       - "6379:6379"
     volumes:
@@ -35,11 +36,7 @@ services:
     command: sh -c "cd packages/db && bunx prisma db push && cd ../../apps/backend && bun run dev"
     ports:
       - "3000:3000"
-    environment:
-      DATABASE_URL: postgres://postgres:password@postgres:5432/betterstack
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: supersecret123
-      PORT: 3000
+    env_file: .env
     depends_on:
       - postgres
       - redis
@@ -49,9 +46,7 @@ services:
     build: .
     restart: always
     command: sh -c "cd apps/producer && bun run dev"
-    environment:
-      DATABASE_URL: postgres://postgres:password@postgres:5432/betterstack
-      REDIS_URL: redis://redis:6379
+    env_file: .env
     depends_on:
       - postgres
       - redis
@@ -61,9 +56,7 @@ services:
     build: .
     restart: always
     command: sh -c "cd apps/worker && bun run dev"
-    environment:
-      DATABASE_URL: postgres://postgres:password@postgres:5432/betterstack
-      REDIS_URL: redis://redis:6379
+    env_file: .env
     depends_on:
       - postgres
       - redis
@@ -73,10 +66,7 @@ services:
     build: .
     restart: always
     command: sh -c "cd apps/notifier && bun run dev"
-    environment:
-      DATABASE_URL: postgres://postgres:password@postgres:5432/betterstack
-      REDIS_URL: redis://redis:6379
-      # Add email/SMS API keys here later
+    env_file: .env
     depends_on:
       - postgres
       - redis
